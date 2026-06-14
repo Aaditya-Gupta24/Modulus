@@ -19,12 +19,17 @@ def max_moment(P: float, L: float, load_case: str) -> float:
     cantilever_end : M = P*L
     simply_center  : M = P*L/4
     """
-    raise NotImplementedError
+    if load_case == "cantilever_end":
+        return P * L
+    elif load_case == "simply_center":
+        return P * L / 4
+    else:
+        raise ValueError(f"Unknown load case: {load_case}")
 
 
 def max_stress(M: float, props: SectionProps) -> float:
     """Maximum bending stress [Pa].  sigma = M*c/I"""
-    raise NotImplementedError
+    return M * props.c / props.I
 
 
 def max_deflection(P: float, L: float, E: float, props: SectionProps,
@@ -34,9 +39,14 @@ def max_deflection(P: float, L: float, E: float, props: SectionProps,
     cantilever_end : delta = P*L**3 / (3*E*I)
     simply_center  : delta = P*L**3 / (48*E*I)
     """
-    raise NotImplementedError
+    if load_case == "cantilever_end":
+        return P * L**3 / (3 * E * props.I)
+    elif load_case == "simply_center":
+        return P * L**3 / (48 * E * props.I)
+    else:
+        raise ValueError(f"Unknown load case: {load_case}")
 
 
 def factor_of_safety(sigma: float, sigma_y: float) -> float:
     """FoS = sigma_y / sigma  (against yield)."""
-    raise NotImplementedError
+    return sigma_y / sigma

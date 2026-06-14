@@ -48,11 +48,17 @@ def test_safest_is_max_fos_among_safe():
     assert rec["fos"] == pytest.approx(safe["fos"].max())
 
 
+import pandas as pd
+
 def test_no_safe_design_raises():
-    # Absurd load with a tiny FoS-impossible target -> nothing safe.
-    df = optimizer.evaluate_candidates(
-        load=1e7, length=5.0, load_case="simply_center", fos_target=10.0
-    )
-    if not df["safe"].any():
-        with pytest.raises(ValueError):
-            optimizer.recommend(df, "balanced")
+    df = pd.DataFrame([
+        {"material": "x", "section": "x", "dims": {}, "area": 1.0, "I": 1.0,
+         "weight": 1.0, "cost": 1.0, "stress": 100.0, "deflection": 1.0,
+         "fos": 0.5, "safe": False},
+        {"material": "y", "section": "y", "dims": {}, "area": 2.0, "I": 2.0,
+         "weight": 2.0, "cost": 0.5, "stress": 200.0, "deflection": 2.0,
+         "fos": 0.8, "safe": False},
+    ])
+
+    with pytest.raises(ValueError):
+        optimizer.recommend(df, "balanced")
