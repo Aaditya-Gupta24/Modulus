@@ -13,23 +13,20 @@
   }
   .editor-container {
     display: flex;
-    gap: 24px;
-    padding: 16px;
+    gap: 28px;
+    padding: 16px 16px 12px;
     align-items: flex-start;
   }
   .svg-panel {
     flex: 1;
-    min-width: 280px;
+    min-width: 300px;
     display: flex;
     flex-direction: column;
     align-items: center;
   }
-  .svg-panel svg {
-    max-width: 100%;
-    height: auto;
-  }
+  .svg-panel svg { max-width: 100%; height: auto; }
   .controls-panel {
-    flex: 0 0 220px;
+    flex: 0 0 200px;
     display: flex;
     flex-direction: column;
     gap: 10px;
@@ -47,56 +44,79 @@
   }
   .dim-group input {
     width: 100%;
-    padding: 6px 8px;
+    padding: 7px 10px;
     border: 1px solid #3d4050;
     border-radius: 6px;
     background: #1a1d24;
     color: #fafafa;
     font-size: 0.85rem;
+    font-variant-numeric: tabular-nums;
     outline: none;
+    transition: border-color 0.15s;
   }
-  .dim-group input:focus {
-    border-color: #4a9eff;
-  }
+  .dim-group input:focus { border-color: #4a9eff; box-shadow: 0 0 0 2px rgba(74,158,255,0.15); }
   .results-bar {
     display: flex;
-    gap: 16px;
+    gap: 20px;
     padding: 10px 16px;
     background: #1a1d24;
     border: 1px solid #3d4050;
     border-radius: 8px;
-    margin-top: 8px;
+    margin-top: 10px;
     flex-wrap: wrap;
+    justify-content: center;
   }
   .result-item {
     display: flex;
     flex-direction: column;
     align-items: center;
+    min-width: 60px;
   }
   .result-label {
-    font-size: 0.65rem;
+    font-size: 0.62rem;
     color: #a0a4b0;
     text-transform: uppercase;
-    letter-spacing: 0.3px;
+    letter-spacing: 0.4px;
+    margin-bottom: 2px;
   }
   .result-value {
-    font-size: 1rem;
+    font-size: 0.95rem;
     font-weight: 700;
+    font-variant-numeric: tabular-nums;
+  }
+  .result-unit {
+    font-size: 0.7rem;
+    color: #666;
+    font-weight: 400;
   }
   .section-title {
-    font-size: 0.8rem;
+    font-size: 0.75rem;
     color: #a0a4b0;
     text-transform: uppercase;
-    letter-spacing: 0.5px;
-    margin-bottom: 6px;
+    letter-spacing: 0.6px;
+    margin-bottom: 8px;
     text-align: center;
   }
-  /* Drag handle styling */
-  .drag-handle {
-    cursor: grab;
+  .props-row {
+    display: flex;
+    gap: 14px;
+    justify-content: center;
+    margin-top: 6px;
+    font-size: 0.72rem;
+    color: #606080;
+    font-family: "SF Mono", "Cascadia Code", Consolas, monospace;
   }
-  .drag-handle:active {
-    cursor: grabbing;
+  .props-row span { white-space: nowrap; }
+  .drag-handle { cursor: grab; }
+  .drag-handle:active { cursor: grabbing; }
+  .controls-title {
+    font-size: 0.68rem;
+    color: #606080;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    padding-bottom: 4px;
+    border-bottom: 1px solid #2a2d38;
+    margin-bottom: 4px;
   }
 </style>
 </head>
@@ -107,18 +127,15 @@
 <script>
 // ── Streamlit Component Protocol ────────────────────────────────────────────
 
-// Signal readiness
 window.parent.postMessage({
   isStreamlitMessage: true,
   type: "streamlit:componentReady",
   apiVersion: 1
 }, "*");
 
-// Current state
-let currentArgs = null;
-let dragState = null;
+var currentArgs = null;
+var dragState = null;
 
-// Listen for render events from Streamlit
 window.addEventListener("message", function(event) {
   if (!event.data || event.data.type !== "streamlit:render") return;
   currentArgs = event.data.args;
@@ -126,7 +143,7 @@ window.addEventListener("message", function(event) {
 });
 
 function setFrameHeight() {
-  const h = document.getElementById("root").scrollHeight + 20;
+  var h = document.getElementById("root").scrollHeight + 16;
   window.parent.postMessage({
     isStreamlitMessage: true,
     type: "streamlit:setFrameHeight",
@@ -151,101 +168,157 @@ function render(args) {
   var results = args.results || {};
 
   var root = document.getElementById("root");
-
-  // Build the SVG for the section
   var svgContent = buildSVG(section, dims, results.safe);
-
-  // Build dimension inputs
   var inputsHTML = buildInputs(section, dims);
+  var propsHTML = buildPropsRow(section, dims);
 
-  // Build results bar
   var fos = results.fos != null ? results.fos.toFixed(2) : "--";
   var stress = results.stress != null ? (results.stress / 1e6).toFixed(1) : "--";
   var defl = results.deflection != null ? (results.deflection * 1e3).toFixed(2) : "--";
   var safeText = results.safe ? "SAFE" : "UNSAFE";
   var safeColor = results.safe ? "#28a745" : "#dc3545";
+  var fosColor = results.fos >= 2.0 ? "#28a745" : (results.fos >= 1.0 ? "#ffc107" : "#dc3545");
 
   root.innerHTML =
     '<div class="editor-container">' +
       '<div class="svg-panel">' +
         '<div class="section-title">' + section.replace(/_/g, " ") + '</div>' +
         svgContent +
+        propsHTML +
         '<div class="results-bar">' +
-          '<div class="result-item"><span class="result-label">FoS</span><span class="result-value" style="color:' + safeColor + '">' + fos + '</span></div>' +
-          '<div class="result-item"><span class="result-label">Stress</span><span class="result-value">' + stress + ' MPa</span></div>' +
-          '<div class="result-item"><span class="result-label">Deflection</span><span class="result-value">' + defl + ' mm</span></div>' +
-          '<div class="result-item"><span class="result-label">Status</span><span class="result-value" style="color:' + safeColor + '">' + safeText + '</span></div>' +
+          '<div class="result-item"><span class="result-label">FoS</span>' +
+            '<span class="result-value" style="color:' + fosColor + '">' + fos + '</span></div>' +
+          '<div class="result-item"><span class="result-label">Stress</span>' +
+            '<span class="result-value">' + stress + ' <span class="result-unit">MPa</span></span></div>' +
+          '<div class="result-item"><span class="result-label">Deflection</span>' +
+            '<span class="result-value">' + defl + ' <span class="result-unit">mm</span></span></div>' +
+          '<div class="result-item"><span class="result-label">Status</span>' +
+            '<span class="result-value" style="color:' + safeColor + '">' + safeText + '</span></div>' +
         '</div>' +
       '</div>' +
       '<div class="controls-panel">' +
+        '<div class="controls-title">Dimensions</div>' +
         inputsHTML +
       '</div>' +
     '</div>';
 
-  // Attach drag handlers to SVG handles
   attachDragHandlers(section, dims);
-
-  // Attach input change handlers
   attachInputHandlers(section, dims);
-
   setTimeout(setFrameHeight, 50);
+}
+
+// ── Section properties (pure JS, matches Python) ────────────────────────────
+
+function calcProps(section, dims) {
+  var A = 0, I = 0, c = 0;
+  var PI = Math.PI;
+  switch (section) {
+    case "rectangle":
+      var b = dims.b || 0.03, h = dims.h || 0.03;
+      A = b * h; I = b * Math.pow(h, 3) / 12; c = h / 2;
+      break;
+    case "circle":
+      var d = dims.d || 0.03;
+      A = PI * d * d / 4; I = PI * Math.pow(d, 4) / 64; c = d / 2;
+      break;
+    case "hollow_circle":
+      var d = dims.d || 0.05, di = dims.di || 0.042;
+      A = PI * (d*d - di*di) / 4; I = PI * (Math.pow(d,4) - Math.pow(di,4)) / 64; c = d / 2;
+      break;
+    case "square_tube":
+      var a = dims.a || 0.04, w = dims.w || 0.004;
+      var ai = a - 2*w;
+      A = a*a - ai*ai; I = (Math.pow(a,4) - Math.pow(ai,4)) / 12; c = a / 2;
+      break;
+    case "i_beam":
+      var b = dims.b || 0.05, h = dims.h || 0.05, tf = dims.tf || 0.005, tw = dims.tw || 0.005;
+      A = b*h - (b-tw)*(h-2*tf);
+      I = (b*Math.pow(h,3) - (b-tw)*Math.pow(h-2*tf,3)) / 12; c = h / 2;
+      break;
+    case "hollow_rectangle":
+      var b = dims.b || 0.04, h = dims.h || 0.06, w = dims.w || 0.004;
+      var bi = b-2*w, hi = h-2*w;
+      A = b*h - bi*hi; I = (b*Math.pow(h,3) - bi*Math.pow(hi,3)) / 12; c = h / 2;
+      break;
+  }
+  return {A: A, I: I, c: c};
+}
+
+function buildPropsRow(section, dims) {
+  var p = calcProps(section, dims);
+  function eng(val) {
+    if (val === 0) return "0";
+    var exp = Math.floor(Math.log10(Math.abs(val)));
+    var man = val / Math.pow(10, exp);
+    return man.toFixed(3) + "e" + exp;
+  }
+  return '<div class="props-row">' +
+    '<span>A=' + eng(p.A) + ' m\u00B2</span>' +
+    '<span>I=' + eng(p.I) + ' m\u2074</span>' +
+    '<span>c=' + (p.c * 1000).toFixed(1) + ' mm</span>' +
+    '</div>';
 }
 
 // ── SVG builders ────────────────────────────────────────────────────────────
 
-var SVG_W = 280;
+var SVG_W = 300;
 var SVG_H = 260;
-var MARGIN = 40;
+var MARGIN = 44;
 
 function buildSVG(section, dims, safe) {
   var strokeColor = safe ? "#28a745" : "#dc3545";
-  var fillColor = safe ? "rgba(40,167,69,0.08)" : "rgba(220,53,69,0.08)";
+  var fillColor = safe ? "rgba(40,167,69,0.06)" : "rgba(220,53,69,0.06)";
 
   var svg = '<svg xmlns="http://www.w3.org/2000/svg" width="' + SVG_W + '" height="' + SVG_H + '" viewBox="0 0 ' + SVG_W + ' ' + SVG_H + '">';
   svg += '<rect width="' + SVG_W + '" height="' + SVG_H + '" fill="transparent"/>';
 
+  // Neutral axis crosshair
+  var naY = SVG_H / 2;
+  svg += '<line x1="' + (MARGIN - 10) + '" y1="' + naY + '" x2="' + (SVG_W - MARGIN + 10) + '" y2="' + naY + '" stroke="#333850" stroke-width="1" stroke-dasharray="2,4"/>';
+  svg += '<text x="' + (MARGIN - 14) + '" y="' + (naY + 3) + '" fill="#333850" font-size="8" text-anchor="end" font-family="monospace">NA</text>';
+
   switch (section) {
-    case "rectangle":
-      svg += svgRectangle(dims, strokeColor, fillColor);
-      break;
-    case "circle":
-      svg += svgCircle(dims, strokeColor, fillColor);
-      break;
-    case "hollow_circle":
-      svg += svgHollowCircle(dims, strokeColor, fillColor);
-      break;
-    case "square_tube":
-      svg += svgSquareTube(dims, strokeColor, fillColor);
-      break;
-    case "i_beam":
-      svg += svgIBeam(dims, strokeColor, fillColor);
-      break;
-    case "hollow_rectangle":
-      svg += svgHollowRectangle(dims, strokeColor, fillColor);
-      break;
+    case "rectangle":      svg += svgRectangle(dims, strokeColor, fillColor); break;
+    case "circle":         svg += svgCircle(dims, strokeColor, fillColor); break;
+    case "hollow_circle":  svg += svgHollowCircle(dims, strokeColor, fillColor); break;
+    case "square_tube":    svg += svgSquareTube(dims, strokeColor, fillColor); break;
+    case "i_beam":         svg += svgIBeam(dims, strokeColor, fillColor); break;
+    case "hollow_rectangle": svg += svgHollowRectangle(dims, strokeColor, fillColor); break;
     default:
       svg += '<text x="' + SVG_W/2 + '" y="' + SVG_H/2 + '" fill="#a0a4b0" text-anchor="middle" font-size="14">Unsupported section</text>';
   }
-
   svg += '</svg>';
   return svg;
 }
 
 function dimLabel(x, y, text) {
-  return '<text x="' + x + '" y="' + y + '" fill="#a0a4b0" font-size="11" text-anchor="middle" font-family="monospace">' + text + '</text>';
+  return '<text x="' + x + '" y="' + y + '" fill="#8088a0" font-size="10.5" text-anchor="middle" font-family="SF Mono,Cascadia Code,Consolas,monospace">' + text + '</text>';
 }
 
 function dimLine(x1, y1, x2, y2) {
-  return '<line x1="' + x1 + '" y1="' + y1 + '" x2="' + x2 + '" y2="' + y2 + '" stroke="#606080" stroke-width="1" stroke-dasharray="4,3"/>';
+  return '<line x1="' + x1 + '" y1="' + y1 + '" x2="' + x2 + '" y2="' + y2 + '" stroke="#505878" stroke-width="0.8" stroke-dasharray="3,3"/>';
+}
+
+function dimArrow(x1, y1, x2, y2) {
+  // Dimension line with small end ticks
+  var s = '<line x1="' + x1 + '" y1="' + y1 + '" x2="' + x2 + '" y2="' + y2 + '" stroke="#505878" stroke-width="0.8" stroke-dasharray="3,3"/>';
+  var horiz = Math.abs(y1 - y2) < 2;
+  if (horiz) {
+    s += '<line x1="' + x1 + '" y1="' + (y1-3) + '" x2="' + x1 + '" y2="' + (y1+3) + '" stroke="#505878" stroke-width="0.8"/>';
+    s += '<line x1="' + x2 + '" y1="' + (y2-3) + '" x2="' + x2 + '" y2="' + (y2+3) + '" stroke="#505878" stroke-width="0.8"/>';
+  } else {
+    s += '<line x1="' + (x1-3) + '" y1="' + y1 + '" x2="' + (x1+3) + '" y2="' + y1 + '" stroke="#505878" stroke-width="0.8"/>';
+    s += '<line x1="' + (x2-3) + '" y1="' + y2 + '" x2="' + (x2+3) + '" y2="' + y2 + '" stroke="#505878" stroke-width="0.8"/>';
+  }
+  return s;
 }
 
 function dragCircle(cx, cy, id) {
-  return '<circle cx="' + cx + '" cy="' + cy + '" r="6" fill="#4a9eff" fill-opacity="0.7" stroke="#4a9eff" stroke-width="1.5" class="drag-handle" data-handle="' + id + '" style="cursor:grab;"/>';
+  return '<circle cx="' + cx + '" cy="' + cy + '" r="5.5" fill="#4a9eff" fill-opacity="0.6" stroke="#4a9eff" stroke-width="1.5" class="drag-handle" data-handle="' + id + '"/>' +
+         '<circle cx="' + cx + '" cy="' + cy + '" r="10" fill="transparent" class="drag-handle" data-handle="' + id + '"/>';
 }
 
-function mm(val) {
-  return (val * 1000).toFixed(1);
-}
+function mm(val) { return (val * 1000).toFixed(1); }
 
 function svgRectangle(dims, stroke, fill) {
   var b = dims.b || 0.03, h = dims.h || 0.03;
@@ -254,14 +327,11 @@ function svgRectangle(dims, stroke, fill) {
   var rw = b * scale, rh = h * scale;
   var x0 = (SVG_W - rw) / 2, y0 = (SVG_H - rh) / 2;
 
-  var s = '<rect x="' + x0 + '" y="' + y0 + '" width="' + rw + '" height="' + rh + '" fill="' + fill + '" stroke="' + stroke + '" stroke-width="2"/>';
-  // b dimension line (bottom)
-  s += dimLine(x0, y0 + rh + 15, x0 + rw, y0 + rh + 15);
-  s += dimLabel(x0 + rw/2, y0 + rh + 28, 'b=' + mm(b) + ' mm');
-  // h dimension line (right)
-  s += dimLine(x0 + rw + 15, y0, x0 + rw + 15, y0 + rh);
-  s += dimLabel(x0 + rw + 38, y0 + rh/2 + 4, 'h=' + mm(h) + ' mm');
-  // Drag handles
+  var s = '<rect x="' + x0 + '" y="' + y0 + '" width="' + rw + '" height="' + rh + '" fill="' + fill + '" stroke="' + stroke + '" stroke-width="2" rx="1"/>';
+  s += dimArrow(x0, y0 + rh + 16, x0 + rw, y0 + rh + 16);
+  s += dimLabel(x0 + rw/2, y0 + rh + 30, 'b=' + mm(b));
+  s += dimArrow(x0 + rw + 16, y0, x0 + rw + 16, y0 + rh);
+  s += dimLabel(x0 + rw + 36, y0 + rh/2 + 4, 'h=' + mm(h));
   s += dragCircle(x0 + rw, y0 + rh/2, 'b');
   s += dragCircle(x0 + rw/2, y0 + rh, 'h');
   return s;
@@ -274,10 +344,8 @@ function svgCircle(dims, stroke, fill) {
   var cx = SVG_W / 2, cy = SVG_H / 2;
 
   var s = '<circle cx="' + cx + '" cy="' + cy + '" r="' + r + '" fill="' + fill + '" stroke="' + stroke + '" stroke-width="2"/>';
-  // diameter line
-  s += dimLine(cx - r, cy, cx + r, cy);
-  s += dimLabel(cx, cy - r - 12, 'd=' + mm(d) + ' mm');
-  // Drag handle
+  s += dimArrow(cx - r, cy - r - 12, cx + r, cy - r - 12);
+  s += dimLabel(cx, cy - r - 24, 'd=' + mm(d));
   s += dragCircle(cx + r, cy, 'd');
   return s;
 }
@@ -290,13 +358,10 @@ function svgHollowCircle(dims, stroke, fill) {
 
   var s = '<circle cx="' + cx + '" cy="' + cy + '" r="' + ro + '" fill="' + fill + '" stroke="' + stroke + '" stroke-width="2"/>';
   s += '<circle cx="' + cx + '" cy="' + cy + '" r="' + ri + '" fill="#0e1117" stroke="' + stroke + '" stroke-width="1.5" stroke-dasharray="4,2"/>';
-  // outer diameter
-  s += dimLine(cx - ro, cy - ro - 10, cx + ro, cy - ro - 10);
-  s += dimLabel(cx, cy - ro - 22, 'd=' + mm(d) + ' mm');
-  // inner diameter
-  s += dimLine(cx - ri, cy + 5, cx + ri, cy + 5);
-  s += dimLabel(cx, cy + 18, 'di=' + mm(di) + ' mm');
-  // Drag handles
+  s += dimArrow(cx - ro, cy - ro - 12, cx + ro, cy - ro - 12);
+  s += dimLabel(cx, cy - ro - 24, 'd=' + mm(d));
+  s += dimArrow(cx - ri, cy + ri + 12, cx + ri, cy + ri + 12);
+  s += dimLabel(cx, cy + ri + 26, 'di=' + mm(di));
   s += dragCircle(cx + ro, cy, 'd');
   s += dragCircle(cx + ri, cy, 'di');
   return s;
@@ -308,15 +373,12 @@ function svgSquareTube(dims, stroke, fill) {
   var side = a * scale, wall = w * scale;
   var x0 = (SVG_W - side) / 2, y0 = (SVG_H - side) / 2;
 
-  var s = '<rect x="' + x0 + '" y="' + y0 + '" width="' + side + '" height="' + side + '" fill="' + fill + '" stroke="' + stroke + '" stroke-width="2"/>';
-  s += '<rect x="' + (x0 + wall) + '" y="' + (y0 + wall) + '" width="' + (side - 2*wall) + '" height="' + (side - 2*wall) + '" fill="#0e1117" stroke="' + stroke + '" stroke-width="1.5" stroke-dasharray="4,2"/>';
-  // a dimension
-  s += dimLine(x0, y0 + side + 15, x0 + side, y0 + side + 15);
-  s += dimLabel(x0 + side/2, y0 + side + 28, 'a=' + mm(a) + ' mm');
-  // w dimension (wall)
-  s += dimLine(x0, y0 - 8, x0 + wall, y0 - 8);
-  s += dimLabel(x0 + wall/2, y0 - 18, 'w=' + mm(w) + ' mm');
-  // Drag handles
+  var s = '<rect x="' + x0 + '" y="' + y0 + '" width="' + side + '" height="' + side + '" fill="' + fill + '" stroke="' + stroke + '" stroke-width="2" rx="1"/>';
+  s += '<rect x="' + (x0 + wall) + '" y="' + (y0 + wall) + '" width="' + (side - 2*wall) + '" height="' + (side - 2*wall) + '" fill="#0e1117" stroke="' + stroke + '" stroke-width="1.5" stroke-dasharray="4,2" rx="1"/>';
+  s += dimArrow(x0, y0 + side + 16, x0 + side, y0 + side + 16);
+  s += dimLabel(x0 + side/2, y0 + side + 30, 'a=' + mm(a));
+  s += dimArrow(x0, y0 - 10, x0 + wall, y0 - 10);
+  s += dimLabel(x0 + wall/2, y0 - 22, 'w=' + mm(w));
   s += dragCircle(x0 + side, y0 + side/2, 'a');
   s += dragCircle(x0 + wall, y0, 'w');
   return s;
@@ -332,35 +394,24 @@ function svgIBeam(dims, stroke, fill) {
   var x0 = (SVG_W - bPx) / 2, y0 = (SVG_H - hPx) / 2;
   var webX = (SVG_W - twPx) / 2;
 
-  // I-beam as a polygon path: top flange -> right web -> bottom flange -> left web
   var pts = [
-    x0, y0,                           // top-left of top flange
-    x0 + bPx, y0,                     // top-right of top flange
-    x0 + bPx, y0 + tfPx,             // bottom-right of top flange
-    webX + twPx, y0 + tfPx,          // right web top
-    webX + twPx, y0 + hPx - tfPx,    // right web bottom
-    x0 + bPx, y0 + hPx - tfPx,       // top-right of bottom flange
-    x0 + bPx, y0 + hPx,              // bottom-right of bottom flange
-    x0, y0 + hPx,                     // bottom-left of bottom flange
-    x0, y0 + hPx - tfPx,             // top-left of bottom flange
-    webX, y0 + hPx - tfPx,           // left web bottom
-    webX, y0 + tfPx,                 // left web top
-    x0, y0 + tfPx                    // bottom-left of top flange
+    x0, y0,  x0 + bPx, y0,  x0 + bPx, y0 + tfPx,
+    webX + twPx, y0 + tfPx,  webX + twPx, y0 + hPx - tfPx,
+    x0 + bPx, y0 + hPx - tfPx,  x0 + bPx, y0 + hPx,
+    x0, y0 + hPx,  x0, y0 + hPx - tfPx,
+    webX, y0 + hPx - tfPx,  webX, y0 + tfPx,  x0, y0 + tfPx
   ];
 
   var s = '<polygon points="' + pts.join(',') + '" fill="' + fill + '" stroke="' + stroke + '" stroke-width="2" stroke-linejoin="round"/>';
-  // b dimension (bottom)
-  s += dimLine(x0, y0 + hPx + 15, x0 + bPx, y0 + hPx + 15);
-  s += dimLabel(x0 + bPx/2, y0 + hPx + 28, 'b=' + mm(b) + ' mm');
-  // h dimension (right)
-  s += dimLine(x0 + bPx + 15, y0, x0 + bPx + 15, y0 + hPx);
-  s += dimLabel(x0 + bPx + 38, y0 + hPx/2 + 4, 'h=' + mm(h) + ' mm');
-  // tf label (top flange)
-  s += dimLine(x0 - 15, y0, x0 - 15, y0 + tfPx);
-  s += dimLabel(x0 - 30, y0 + tfPx/2 + 4, 'tf');
-  // tw label (web)
-  s += dimLabel(SVG_W/2, y0 + hPx/2, 'tw');
-  // Drag handles
+  s += dimArrow(x0, y0 + hPx + 16, x0 + bPx, y0 + hPx + 16);
+  s += dimLabel(x0 + bPx/2, y0 + hPx + 30, 'b=' + mm(b));
+  s += dimArrow(x0 + bPx + 16, y0, x0 + bPx + 16, y0 + hPx);
+  s += dimLabel(x0 + bPx + 36, y0 + hPx/2 + 4, 'h=' + mm(h));
+  // tf annotation
+  s += dimArrow(x0 - 16, y0, x0 - 16, y0 + tfPx);
+  s += dimLabel(x0 - 32, y0 + tfPx/2 + 4, 'tf');
+  // tw annotation
+  s += '<text x="' + SVG_W/2 + '" y="' + (y0 + hPx/2 + 4) + '" fill="#8088a0" font-size="9" text-anchor="middle" font-family="SF Mono,Consolas,monospace">tw=' + mm(tw) + '</text>';
   s += dragCircle(x0 + bPx, y0 + hPx/2, 'b');
   s += dragCircle(x0 + bPx/2, y0 + hPx, 'h');
   return s;
@@ -373,18 +424,14 @@ function svgHollowRectangle(dims, stroke, fill) {
   var bPx = b * scale, hPx = h * scale, wPx = w * scale;
   var x0 = (SVG_W - bPx) / 2, y0 = (SVG_H - hPx) / 2;
 
-  var s = '<rect x="' + x0 + '" y="' + y0 + '" width="' + bPx + '" height="' + hPx + '" fill="' + fill + '" stroke="' + stroke + '" stroke-width="2"/>';
-  s += '<rect x="' + (x0 + wPx) + '" y="' + (y0 + wPx) + '" width="' + (bPx - 2*wPx) + '" height="' + (hPx - 2*wPx) + '" fill="#0e1117" stroke="' + stroke + '" stroke-width="1.5" stroke-dasharray="4,2"/>';
-  // b dimension
-  s += dimLine(x0, y0 + hPx + 15, x0 + bPx, y0 + hPx + 15);
-  s += dimLabel(x0 + bPx/2, y0 + hPx + 28, 'b=' + mm(b) + ' mm');
-  // h dimension
-  s += dimLine(x0 + bPx + 15, y0, x0 + bPx + 15, y0 + hPx);
-  s += dimLabel(x0 + bPx + 38, y0 + hPx/2 + 4, 'h=' + mm(h) + ' mm');
-  // w dimension
-  s += dimLine(x0, y0 - 8, x0 + wPx, y0 - 8);
-  s += dimLabel(x0 + wPx/2, y0 - 18, 'w=' + mm(w) + ' mm');
-  // Drag handles
+  var s = '<rect x="' + x0 + '" y="' + y0 + '" width="' + bPx + '" height="' + hPx + '" fill="' + fill + '" stroke="' + stroke + '" stroke-width="2" rx="1"/>';
+  s += '<rect x="' + (x0 + wPx) + '" y="' + (y0 + wPx) + '" width="' + (bPx - 2*wPx) + '" height="' + (hPx - 2*wPx) + '" fill="#0e1117" stroke="' + stroke + '" stroke-width="1.5" stroke-dasharray="4,2" rx="1"/>';
+  s += dimArrow(x0, y0 + hPx + 16, x0 + bPx, y0 + hPx + 16);
+  s += dimLabel(x0 + bPx/2, y0 + hPx + 30, 'b=' + mm(b));
+  s += dimArrow(x0 + bPx + 16, y0, x0 + bPx + 16, y0 + hPx);
+  s += dimLabel(x0 + bPx + 36, y0 + hPx/2 + 4, 'h=' + mm(h));
+  s += dimArrow(x0, y0 - 10, x0 + wPx, y0 - 10);
+  s += dimLabel(x0 + wPx/2, y0 - 22, 'w=' + mm(w));
   s += dragCircle(x0 + bPx, y0 + hPx/2, 'b');
   s += dragCircle(x0 + bPx/2, y0 + hPx, 'h');
   return s;
@@ -451,7 +498,7 @@ function collectDimsFromInputs(section, oldDims) {
     if (!input) return null;
     var val = parseFloat(input.value);
     if (isNaN(val) || val <= 0) return null;
-    newDims[fields[i].key] = val / 1000; // mm -> m
+    newDims[fields[i].key] = val / 1000;
   }
   return newDims;
 }
@@ -482,24 +529,11 @@ function onDragMove(e) {
   if (!dragState) return;
   var dx = e.clientX - dragState.startX;
   var dy = e.clientY - dragState.startY;
-
-  // Use the larger absolute delta; scale: ~1px = 0.2mm
-  var delta;
   var key = dragState.dimKey;
-  if (key === 'h' || key === 'di') {
-    delta = dy * 0.0002; // vertical dims
-  } else {
-    delta = dx * 0.0002; // horizontal dims
-  }
-
+  var delta = (key === 'h' || key === 'di') ? dy * 0.0002 : dx * 0.0002;
   var newVal = Math.max(0.001, dragState.startVal + delta);
-  // Snap to 0.5mm
   newVal = Math.round(newVal * 2000) / 2000;
 
-  var newDims = Object.assign({}, dragState.dims);
-  newDims[key] = newVal;
-
-  // Update the input field live
   var input = document.querySelector('input[data-dim="' + key + '"]');
   if (input) input.value = (newVal * 1000).toFixed(1);
 }
@@ -508,8 +542,6 @@ function onDragEnd(e) {
   if (!dragState) return;
   document.removeEventListener('mousemove', onDragMove);
   document.removeEventListener('mouseup', onDragEnd);
-
-  // Send final value
   var newDims = collectDimsFromInputs(dragState.section, dragState.dims);
   dragState = null;
   if (newDims) sendValue(newDims);

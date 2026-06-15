@@ -3,7 +3,10 @@
 Run locally:  streamlit run app.py
 """
 
+import math
+
 import pandas as pd
+import plotly.graph_objects as go
 import streamlit as st
 
 from mechopt.beam import max_deflection, max_moment, max_stress, factor_of_safety
@@ -15,845 +18,1153 @@ from mechopt.sections import (
     circle, hollow_circle, hollow_rectangle, i_beam, rectangle, square_tube,
 )
 
-# ─── Page config ──────────────────────────────────────────────────────────────
-st.set_page_config(page_title="MechOpt", page_icon="wrench", layout="wide")
+# ─── Page config ─────────────────────────────────────────────────────────────
+st.set_page_config(page_title="MechOpt", page_icon="⬡", layout="wide")
 
-# ─── Custom CSS to match index.html design ────────────────────────────────────
-st.markdown("""
+# ─── Constants ───────────────────────────────────────────────────────────────
+ACCENT = "oklch(0.58 0.16 255)"
+ACCENT_HEX = "#2e64d1"
+MAT_CLR = {
+    "Aluminum 6061-T6": "#3b82f6",
+    "Steel A36":        "#6b7280",
+    "PLA (3D print)":   "#10b981",
+    "Titanium Ti-6Al-4V": "#8b5cf6",
+    "Brass C360":       "#f59e0b",
+    "ABS (3D print)":   "#ef4444",
+}
+
+PLOTLY_COLORS = list(MAT_CLR.values())
+
+
+# ─── CSS ─────────────────────────────────────────────────────────────────────
+st.html("""\
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
-  :root {
-    --bg: #0e1117; --surface: #1a1d24; --card: #262730;
-    --border: #3d4050; --text: #fafafa; --muted: #a0a4b0;
-    --accent: #4a9eff; --green: #28a745; --red: #dc3545;
-    --yellow: #ffc107; --radius: 8px;
-  }
-
-  /* Hide default Streamlit header/footer */
-  header[data-testid="stHeader"] { background: var(--bg) !important; }
-  .stApp { background: var(--bg); }
-
-  /* Tab styling */
-  button[data-baseweb="tab"] {
-    font-weight: 500 !important;
-    font-size: 0.95rem !important;
-    color: var(--muted) !important;
-    border-bottom: 2px solid transparent !important;
-    padding: 10px 20px !important;
-  }
-  button[data-baseweb="tab"][aria-selected="true"] {
-    color: var(--accent) !important;
-    border-bottom-color: var(--accent) !important;
-  }
-
-  /* Metric cards */
-  div[data-testid="stMetric"] {
-    background: var(--card);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    padding: 14px 16px;
-  }
-  div[data-testid="stMetric"] label {
-    font-size: 0.75rem !important;
-    color: var(--muted) !important;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-  }
-  div[data-testid="stMetric"] div[data-testid="stMetricValue"] {
-    font-size: 1.4rem !important;
-    font-weight: 700 !important;
-  }
-  div[data-testid="stMetric"] div[data-testid="stMetricDelta"] {
-    font-size: 0.8rem !important;
-  }
-
-  /* Expander styling */
-  details[data-testid="stExpander"] {
-    background: var(--card);
-    border: 1px solid var(--border) !important;
-    border-radius: var(--radius) !important;
-  }
-  details[data-testid="stExpander"] summary {
-    font-weight: 500;
-  }
-  details[data-testid="stExpander"] summary:hover {
-    border-color: var(--accent) !important;
-  }
-
-  /* Section headers */
-  h2, h3 {
-    color: var(--muted) !important;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    font-size: 1.1rem !important;
-    font-weight: 600 !important;
-  }
-  h3 { font-size: 1rem !important; }
-
-  /* Dividers */
-  hr { border-color: var(--border) !important; }
-
-  /* Dataframe */
-  div[data-testid="stDataFrame"] {
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-  }
-
-  /* Custom badge */
-  .mechopt-badge {
-    display: inline-block;
-    padding: 6px 16px;
-    border-radius: 20px;
-    font-weight: 700;
-    font-size: 0.85rem;
-  }
-  .badge-safe {
-    background: #1a3d1a;
-    color: var(--green);
-    border: 1px solid var(--green);
-  }
-  .badge-unsafe {
-    background: #3d1a1a;
-    color: var(--red);
-    border: 1px solid var(--red);
-  }
-
-  /* Recommendation header */
-  .rec-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 16px;
-    padding: 8px 0;
-  }
-  .rec-title {
-    font-size: 1.15rem;
-    font-weight: 600;
-    color: var(--text);
-  }
-
-  /* Alert boxes */
-  .mechopt-alert {
-    padding: 12px 16px;
-    border-radius: var(--radius);
-    margin-bottom: 16px;
-    border-left: 4px solid;
-    font-size: 0.9rem;
-    line-height: 1.5;
-  }
-  .alert-info { background: #1e3a5f; border-color: var(--accent); color: var(--text); }
-  .alert-success { background: #1a3d1a; border-color: var(--green); color: var(--text); }
-  .alert-warning { background: #3d2e00; border-color: var(--yellow); color: var(--text); }
-  .alert-danger { background: #3d1a1a; border-color: var(--red); color: var(--text); }
-
-  /* Panel */
-  .mechopt-panel {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    padding: 20px;
-    margin-bottom: 16px;
-  }
-
-  /* Assumptions list */
-  .assumptions-list {
-    list-style: none;
-    padding: 0;
-    margin: 0;
-  }
-  .assumptions-list li {
-    padding: 4px 0 4px 16px;
-    position: relative;
-    font-size: 0.9rem;
-    color: var(--text);
-  }
-  .assumptions-list li::before {
-    content: "·";
-    position: absolute;
-    left: 4px;
-    color: var(--accent);
-    font-weight: bold;
-  }
-
-  /* Subtitle */
-  .mechopt-subtitle {
-    color: var(--muted);
-    font-size: 0.9rem;
-    margin-bottom: 20px;
-  }
-
-  /* Custom table styling */
-  .mechopt-table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 0.85rem;
-  }
-  .mechopt-table th {
-    background: var(--card);
-    padding: 10px 12px;
-    text-align: left;
-    font-weight: 600;
-    color: var(--muted);
-    border-bottom: 2px solid var(--border);
-    font-size: 0.75rem;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-  }
-  .mechopt-table td {
-    padding: 8px 12px;
-    border-bottom: 1px solid var(--border);
-    color: var(--text);
-  }
-  .mechopt-table tr:hover { background: var(--card); }
-  .mechopt-table .text-right { text-align: right; }
-  .mechopt-table .safe-row td { border-left: 3px solid var(--green); }
-  .mechopt-table .unsafe-row td:first-child { border-left: 3px solid var(--red); }
-  .mini-badge {
-    display: inline-block;
-    padding: 2px 8px;
-    border-radius: 12px;
-    font-weight: 700;
-    font-size: 0.75rem;
-  }
+:root {
+  --accent: oklch(0.58 0.16 255);
+  --accent-hex: #2e64d1;
+  --bg: #0b0e14;
+  --surface: #151921;
+  --card: #1a1f2e;
+  --border: #2a2f42;
+  --border-light: #222738;
+  --text: #e8eaf0;
+  --muted: #8b90a0;
+  --green: #34d399;
+  --red: #f87171;
+  --amber: #fbbf24;
+  --radius: 10px;
+  --radius-sm: 6px;
+  --font: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+/* ── Global reset ───────────────────────────────────── */
+html, body, .stApp {
+  font-family: var(--font) !important;
+  background: var(--bg) !important;
+  color: var(--text) !important;
+}
+* { font-family: var(--font) !important; }
+#MainMenu, footer, header .stDeployButton { display: none !important; }
+header[data-testid="stHeader"] { display: none !important; }
+.block-container {
+  max-width: 1320px !important;
+  padding-top: 0 !important;
+  padding-bottom: 2rem !important;
+}
+/* ── Sticky header ──────────────────────────────────── */
+.mo-hdr {
+  position: sticky; top: 0; z-index: 999;
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+  padding: 10px 0 10px;
+  margin-bottom: 20px;
+  display: flex; align-items: center; justify-content: space-between;
+}
+.mo-hdr-l { display: flex; align-items: center; gap: 12px; }
+.mo-logo {
+  width: 38px; height: 38px;
+  background: var(--accent);
+  border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.mo-brand-name { font-size: 18px; font-weight: 800; color: var(--text); letter-spacing: -0.3px; }
+.mo-brand-sub  { font-size: 12px; color: var(--muted); margin-top: 1px; }
+.mo-chip {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 11px; font-weight: 500;
+  color: var(--muted);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 50px;
+  padding: 5px 14px;
+  white-space: nowrap;
+}
+.mo-chip-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); }
+/* ── Tabs — underline style ─────────────────────────── */
+div[data-baseweb="tab-list"] {
+  background: transparent !important;
+  border-bottom: 1px solid var(--border) !important;
+  gap: 0 !important; padding: 0 !important;
+}
+button[data-baseweb="tab"] {
+  font-weight: 600 !important;
+  font-size: 0.875rem !important;
+  color: var(--muted) !important;
+  border-bottom: 2px solid transparent !important;
+  border-radius: 0 !important;
+  padding: 12px 22px !important;
+  background: transparent !important;
+  transition: color 0.15s;
+}
+button[data-baseweb="tab"]:hover { color: var(--text) !important; }
+button[data-baseweb="tab"][aria-selected="true"] {
+  color: var(--accent-hex) !important;
+  border-bottom-color: var(--accent-hex) !important;
+}
+div[data-baseweb="tab-highlight"] {
+  background: var(--accent-hex) !important;
+  height: 2px !important;
+}
+div[data-baseweb="tab-border"] { display: none !important; }
+/* ── Cards ──────────────────────────────────────────── */
+.card {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 24px; margin-bottom: 16px;
+}
+.card-hd {
+  font-size: 10.5px; font-weight: 700; color: var(--accent-hex);
+  text-transform: uppercase; letter-spacing: 1px; margin-bottom: 14px;
+}
+/* ── Metric tiles ───────────────────────────────────── */
+div[data-testid="stMetric"] {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); padding: 14px 16px;
+}
+div[data-testid="stMetric"] label {
+  font-size: 0.67rem !important; color: var(--muted) !important;
+  text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600 !important;
+}
+div[data-testid="stMetric"] [data-testid="stMetricValue"] {
+  font-size: 1.2rem !important; font-weight: 700 !important; color: var(--text) !important;
+}
+div[data-testid="stMetric"] [data-testid="stMetricDelta"] {
+  font-size: 0.72rem !important;
+}
+/* ── Badges ─────────────────────────────────────────── */
+.badge {
+  display: inline-block; padding: 4px 14px; border-radius: 50px;
+  font-weight: 700; font-size: 0.73rem; letter-spacing: 0.4px;
+}
+.badge-safe   { background: rgba(52,211,153,0.15); color: var(--green); border: 1px solid rgba(52,211,153,0.3); }
+.badge-unsafe { background: rgba(248,113,113,0.15); color: var(--red); border: 1px solid rgba(248,113,113,0.3); }
+/* ── Recommendation card ────────────────────────────── */
+.rec-card { padding: 24px; }
+.rec-label {
+  font-size: 10.5px; font-weight: 700; color: var(--accent-hex);
+  text-transform: uppercase; letter-spacing: 1px;
+  margin-bottom: 2px;
+}
+.rec-mat  { font-size: 1.45rem; font-weight: 800; color: var(--text); margin: 4px 0 2px; }
+.rec-sec  { font-size: 0.88rem; color: var(--muted); }
+.rec-body { display: flex; gap: 24px; align-items: flex-start; margin-top: 16px; }
+.rec-svg  { flex: 0 0 104px; }
+.rec-tiles { flex: 1; }
+.rec-foot {
+  margin-top: 16px; padding: 12px 16px;
+  background: rgba(46,100,209,0.08); border-radius: var(--radius-sm);
+  font-size: 0.84rem; color: var(--muted); line-height: 1.65;
+}
+.rec-foot strong { color: var(--text); }
+/* ── No-safe banner ─────────────────────────────────── */
+.no-safe {
+  background: rgba(248,113,113,0.1); border: 1px solid rgba(248,113,113,0.25);
+  border-radius: var(--radius); padding: 28px; text-align: center;
+  margin-bottom: 16px;
+}
+.no-safe b  { display: block; font-size: 1.1rem; color: var(--red); margin-bottom: 8px; }
+.no-safe p  { font-size: 0.85rem; color: #fca5a5; margin: 0; }
+/* ── Callouts ───────────────────────────────────────── */
+.callout {
+  padding: 14px 18px; border-radius: var(--radius-sm);
+  margin-bottom: 16px; font-size: 0.84rem; line-height: 1.6;
+}
+.callout-blue  { background: rgba(46,100,209,0.1);  color: #93b4f5; }
+.callout-green { background: rgba(52,211,153,0.1); color: #6ee7b7; }
+.callout-amber { background: rgba(251,191,36,0.1); color: #fcd34d; }
+.callout-red   { background: rgba(248,113,113,0.1); color: #fca5a5; }
+/* ── Tables ─────────────────────────────────────────── */
+.mt {
+  width: 100%; border-collapse: separate; border-spacing: 0;
+  font-size: 0.82rem; border-radius: var(--radius-sm);
+  overflow: hidden; border: 1px solid var(--border);
+}
+.mt th {
+  background: var(--surface); padding: 10px 12px; text-align: left;
+  font-weight: 700; color: var(--muted); font-size: 0.68rem;
+  text-transform: uppercase; letter-spacing: 0.5px;
+}
+.mt td {
+  padding: 9px 12px; border-top: 1px solid var(--border-light); color: var(--text);
+}
+.mt .n { text-align: right; font-size: 0.8rem; font-variant-numeric: tabular-nums; }
+.mt tr:hover td { background: rgba(46,100,209,0.04); }
+.mt .row-safe td:first-child { border-left: 3px solid var(--green); }
+.mt .row-fail td:first-child { border-left: 3px solid var(--red); }
+/* ── Material dot ───────────────────────────────────── */
+.mdot {
+  display: inline-block; width: 8px; height: 8px;
+  border-radius: 50%; margin-right: 6px; vertical-align: middle;
+}
+/* ── Utilisation bar ────────────────────────────────── */
+.ub { margin: 6px 0; }
+.ub-lbl {
+  display: flex; justify-content: space-between;
+  font-size: 0.7rem; color: var(--muted); margin-bottom: 3px; font-weight: 600;
+}
+.ub-lbl .v { font-variant-numeric: tabular-nums; }
+.ub-track {
+  height: 6px; background: var(--surface); border-radius: 3px;
+  overflow: hidden; border: 1px solid var(--border);
+}
+.ub-fill { height: 100%; border-radius: 3px; transition: width 0.4s ease; }
+/* ── Rail heading (input panel) ─────────────────────── */
+.rh {
+  font-size: 10.5px; font-weight: 700; color: var(--accent-hex);
+  text-transform: uppercase; letter-spacing: 1px;
+  margin: 18px 0 10px; padding-bottom: 8px;
+  border-bottom: 1px solid var(--border-light);
+}
+.rh:first-child { margin-top: 0; }
+/* ── Priority pills (2x2) ──────────────────────────── */
+.prio-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin: 8px 0;
+}
+.prio-pill-btn {
+  padding: 9px 0; border: 1px solid var(--border); border-radius: var(--radius-sm);
+  text-align: center; font-size: 0.82rem; font-weight: 600;
+  color: var(--muted); cursor: default; transition: all 0.15s;
+}
+.prio-pill-btn.active {
+  background: var(--accent-hex); color: #fff; border-color: var(--accent-hex);
+}
+/* ── Winner cards (Compare tab) ─────────────────────── */
+.wgrid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin: 12px 0; }
+.wc {
+  border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 16px; border-top: 3px solid var(--accent-hex);
+  background: var(--card);
+}
+.wc-lbl {
+  font-size: 0.68rem; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.6px; color: var(--muted); margin-bottom: 6px;
+}
+.wc-mat { font-size: 1rem; font-weight: 700; color: var(--text); margin-bottom: 2px; }
+.wc-sec { font-size: 0.8rem; color: var(--muted); margin-bottom: 10px; }
+.wc-row {
+  display: flex; gap: 8px; flex-wrap: wrap;
+  font-size: 0.72rem; color: var(--muted); font-variant-numeric: tabular-nums;
+}
+.wc-row b { color: var(--text); }
+.wc.light  { border-top-color: #06b6d4; }
+.wc.cheap  { border-top-color: var(--green); }
+.wc.safe   { border-top-color: var(--amber); }
+.wc.bal    { border-top-color: #8b5cf6; }
+/* ── Prio pill (Compare table) ──────────────────────── */
+.pp {
+  display: inline-block; padding: 2px 10px; border-radius: 50px;
+  font-size: 0.7rem; font-weight: 700;
+}
+.pp-bal    { background: rgba(139,92,246,0.15); color: #a78bfa; }
+.pp-light  { background: rgba(6,182,212,0.15); color: #22d3ee; }
+.pp-cheap  { background: rgba(52,211,153,0.15); color: var(--green); }
+.pp-safe   { background: rgba(251,191,36,0.15); color: var(--amber); }
+/* ── Assumption lists ───────────────────────────────── */
+.al { list-style: none; padding: 0; margin: 0; }
+.al li {
+  padding: 5px 0 5px 18px; position: relative;
+  font-size: 0.84rem; line-height: 1.55;
+}
+.al li::before {
+  content: ""; position: absolute; left: 3px; top: 13px;
+  width: 5px; height: 5px; border-radius: 50%;
+}
+.al.grn li::before { background: var(--green); }
+.al.red li::before { background: var(--red); }
+/* ── Section label in assumption card ───────────────── */
+.asec {
+  font-size: 0.75rem; font-weight: 700; color: var(--muted);
+  text-transform: uppercase; letter-spacing: 0.5px;
+  margin: 14px 0 6px; padding-bottom: 4px;
+  border-bottom: 1px solid var(--border-light);
+}
+.asec:first-child { margin-top: 0; }
+/* ── Expanders ──────────────────────────────────────── */
+details[data-testid="stExpander"] {
+  border: 1px solid var(--border) !important;
+  border-radius: var(--radius) !important;
+  background: var(--card) !important;
+}
+details[data-testid="stExpander"] summary span { font-weight: 600 !important; }
+/* ── Selectbox / multiselect ────────────────────────── */
+div[data-baseweb="select"] * { font-family: var(--font) !important; }
+/* ── Hide Streamlit heading anchors ─────────────────── */
+.stMarkdown h1, .stMarkdown h2, .stMarkdown h3 { display: none; }
 </style>
-""", unsafe_allow_html=True)
+""")
 
 
-# ─── Title ────────────────────────────────────────────────────────────────────
-st.markdown("# &#9881; MechOpt")
-st.markdown('<p class="mechopt-subtitle">Mechanical Design Screening Dashboard &mdash; First-pass static analysis for beams and brackets</p>', unsafe_allow_html=True)
+# ─── Helpers ─────────────────────────────────────────────────────────────────
 
+def mdot(name):
+    """Material color dot."""
+    c = MAT_CLR.get(name, "#6b7280")
+    return f'<span class="mdot" style="background:{c}"></span>'
+
+
+def section_svg(sec_type, size=104):
+    """Inline SVG thumbnail for a cross-section type."""
+    s = size
+    cx, cy = s / 2, s / 2
+    sk = ACCENT_HEX
+    fl = "rgba(46,100,209,0.2)"
+    bg = "#1a1f2e"
+    if sec_type == "rectangle":
+        w, h = s * 0.5, s * 0.65
+        return (f'<svg width="{s}" height="{s}" viewBox="0 0 {s} {s}">'
+                f'<rect x="{cx-w/2:.1f}" y="{cy-h/2:.1f}" width="{w:.1f}" '
+                f'height="{h:.1f}" fill="{fl}" stroke="{sk}" stroke-width="2" rx="2"/></svg>')
+    if sec_type == "circle":
+        r = s * 0.32
+        return (f'<svg width="{s}" height="{s}" viewBox="0 0 {s} {s}">'
+                f'<circle cx="{cx}" cy="{cy}" r="{r:.1f}" fill="{fl}" '
+                f'stroke="{sk}" stroke-width="2"/></svg>')
+    if sec_type == "i_beam":
+        bw, bh = s * 0.55, s * 0.65
+        tf, tw = s * 0.1, s * 0.12
+        x0, y0 = cx - bw / 2, cy - bh / 2
+        return (f'<svg width="{s}" height="{s}" viewBox="0 0 {s} {s}">'
+                f'<rect x="{x0:.1f}" y="{y0:.1f}" width="{bw:.1f}" height="{tf:.1f}" '
+                f'fill="{fl}" stroke="{sk}" stroke-width="2" rx="1"/>'
+                f'<rect x="{cx-tw/2:.1f}" y="{y0+tf:.1f}" width="{tw:.1f}" '
+                f'height="{bh-2*tf:.1f}" fill="{fl}" stroke="{sk}" stroke-width="2"/>'
+                f'<rect x="{x0:.1f}" y="{y0+bh-tf:.1f}" width="{bw:.1f}" height="{tf:.1f}" '
+                f'fill="{fl}" stroke="{sk}" stroke-width="2" rx="1"/></svg>')
+    if sec_type == "square_tube":
+        o = s * 0.6
+        wall = s * 0.08
+        i = o - 2 * wall
+        return (f'<svg width="{s}" height="{s}" viewBox="0 0 {s} {s}">'
+                f'<rect x="{cx-o/2:.1f}" y="{cy-o/2:.1f}" width="{o:.1f}" height="{o:.1f}" '
+                f'fill="{fl}" stroke="{sk}" stroke-width="2" rx="2"/>'
+                f'<rect x="{cx-i/2:.1f}" y="{cy-i/2:.1f}" width="{i:.1f}" height="{i:.1f}" '
+                f'fill="{bg}" stroke="{sk}" stroke-width="1.5" rx="1"/></svg>')
+    if sec_type == "hollow_rectangle":
+        ow, oh = s * 0.5, s * 0.65
+        wall = s * 0.07
+        iw, ih = ow - 2 * wall, oh - 2 * wall
+        return (f'<svg width="{s}" height="{s}" viewBox="0 0 {s} {s}">'
+                f'<rect x="{cx-ow/2:.1f}" y="{cy-oh/2:.1f}" width="{ow:.1f}" '
+                f'height="{oh:.1f}" fill="{fl}" stroke="{sk}" stroke-width="2" rx="2"/>'
+                f'<rect x="{cx-iw/2:.1f}" y="{cy-ih/2:.1f}" width="{iw:.1f}" '
+                f'height="{ih:.1f}" fill="{bg}" stroke="{sk}" stroke-width="1.5" rx="1"/></svg>')
+    if sec_type == "hollow_circle":
+        ro, ri = s * 0.32, s * 0.22
+        return (f'<svg width="{s}" height="{s}" viewBox="0 0 {s} {s}">'
+                f'<circle cx="{cx}" cy="{cy}" r="{ro:.1f}" fill="{fl}" '
+                f'stroke="{sk}" stroke-width="2"/>'
+                f'<circle cx="{cx}" cy="{cy}" r="{ri:.1f}" fill="{bg}" '
+                f'stroke="{sk}" stroke-width="1.5"/></svg>')
+    return ""
+
+
+def bracket_svg():
+    """Small schematic of bracket setup."""
+    return (
+        '<svg viewBox="0 0 260 140" width="260" height="140" '
+        'style="display:block;margin:8px auto 0;">'
+        # Wall hatching
+        '<rect x="10" y="10" width="16" height="120" fill="#2a2f42" stroke="#4b5068" stroke-width="1.5"/>'
+        '<line x1="12" y1="10" x2="12" y2="130" stroke="#4b5068" stroke-width="0.5" stroke-dasharray="3,3"/>'
+        '<line x1="18" y1="10" x2="18" y2="130" stroke="#4b5068" stroke-width="0.5" stroke-dasharray="3,3"/>'
+        '<line x1="24" y1="10" x2="24" y2="130" stroke="#4b5068" stroke-width="0.5" stroke-dasharray="3,3"/>'
+        # Plate
+        '<rect x="26" y="55" width="160" height="12" rx="2" fill="rgba(46,100,209,0.25)" stroke="#2e64d1" stroke-width="1.5"/>'
+        # Bolts
+        '<circle cx="40" cy="40" r="5" fill="#fbbf24" stroke="#d97706" stroke-width="1"/>'
+        '<circle cx="40" cy="70" r="5" fill="#fbbf24" stroke="#d97706" stroke-width="1"/>'
+        '<circle cx="40" cy="100" r="5" fill="#fbbf24" stroke="#d97706" stroke-width="1"/>'
+        '<circle cx="40" cy="130" r="5" fill="#fbbf24" stroke="#d97706" stroke-width="1"/>'
+        # Load arrow
+        '<line x1="200" y1="20" x2="200" y2="52" stroke="#f87171" stroke-width="2"/>'
+        '<polygon points="194,48 200,58 206,48" fill="#f87171"/>'
+        '<text x="200" y="15" text-anchor="middle" font-size="12" font-weight="700" fill="#f87171">P</text>'
+        # Dimension line for offset
+        '<line x1="30" y1="78" x2="194" y2="78" stroke="#8b90a0" stroke-width="0.8" '
+        'stroke-dasharray="4,3"/>'
+        '<line x1="30" y1="74" x2="30" y2="82" stroke="#8b90a0" stroke-width="0.8"/>'
+        '<line x1="194" y1="74" x2="194" y2="82" stroke="#8b90a0" stroke-width="0.8"/>'
+        '<text x="112" y="92" text-anchor="middle" font-size="10" fill="#8b90a0" '
+        'font-style="italic">offset e</text>'
+        '</svg>')
+
+
+def util_bar(label, value, max_val=1.0, invert=False):
+    """Render a utilisation bar."""
+    pct = min(value / max_val, 1.0) * 100 if max_val > 0 else 0
+    if invert:
+        color = "#34d399" if pct < 60 else ("#fbbf24" if pct < 85 else "#f87171")
+    else:
+        color = "#f87171" if pct < 40 else ("#fbbf24" if pct < 70 else "#34d399")
+    return (
+        f'<div class="ub">'
+        f'<div class="ub-lbl"><span>{label}</span><span class="v">{pct:.0f}%</span></div>'
+        f'<div class="ub-track">'
+        f'<div class="ub-fill" style="width:{pct:.1f}%;background:{color};"></div>'
+        f'</div></div>'
+    )
+
+
+PLOTLY_LAYOUT = dict(
+    paper_bgcolor="rgba(0,0,0,0)",
+    plot_bgcolor="#151921",
+    font=dict(family="Inter, sans-serif", color="#8b90a0", size=12),
+    margin=dict(l=50, r=16, t=40, b=50),
+    legend=dict(bgcolor="rgba(0,0,0,0)", bordercolor="#2a2f42",
+                borderwidth=1, font=dict(size=11)),
+    xaxis=dict(gridcolor="#1e2336", zeroline=False, linecolor="#2a2f42"),
+    yaxis=dict(gridcolor="#1e2336", zeroline=False, linecolor="#2a2f42"),
+    hoverlabel=dict(bgcolor="#1a1f2e", font_size=12, font_color="#e8eaf0",
+                    bordercolor="#2a2f42"),
+)
+
+
+def scatter_plot(df, x_col, y_col, x_label, y_label, fos_target, title,
+                 rec_row=None):
+    """Dark-themed Plotly scatter with safe/unsafe split and target line."""
+    safe_df = df[df["safe"]]
+    unsafe_df = df[~df["safe"]]
+    fig = go.Figure()
+    if not unsafe_df.empty:
+        fig.add_trace(go.Scatter(
+            x=unsafe_df[x_col], y=unsafe_df[y_col], mode="markers",
+            marker=dict(size=6, color="#3a3f52", opacity=0.5,
+                        line=dict(width=0.5, color="#4b5068")),
+            name="Unsafe",
+            text=unsafe_df.apply(
+                lambda r: f"{r['material']}<br>{r['section']} {r['dims']}"
+                          f"<br>FoS {r['fos']:.2f}", axis=1),
+            hoverinfo="text",
+        ))
+    materials = safe_df["material"].unique()
+    for i, mat in enumerate(materials):
+        mdf = safe_df[safe_df["material"] == mat]
+        fig.add_trace(go.Scatter(
+            x=mdf[x_col], y=mdf[y_col], mode="markers",
+            marker=dict(size=8, color=MAT_CLR.get(mat, "#6b7280"),
+                        line=dict(width=1, color="rgba(0,0,0,0.3)")),
+            name=mat,
+            text=mdf.apply(
+                lambda r: f"<b>{r['material']}</b><br>{r['section']} {r['dims']}"
+                          f"<br>FoS <b>{r['fos']:.2f}</b> · {r['stress']/1e6:.1f} MPa"
+                          f"<br>{r['weight']:.4f} kg · ${r['cost']:.2f}", axis=1),
+            hoverinfo="text",
+        ))
+    if rec_row is not None:
+        fig.add_trace(go.Scatter(
+            x=[rec_row[x_col]], y=[rec_row[y_col]], mode="markers",
+            marker=dict(size=14, color="rgba(0,0,0,0)",
+                        line=dict(width=2.5, color=ACCENT_HEX)),
+            name="Recommended", showlegend=False, hoverinfo="skip",
+        ))
+    if y_col == "fos":
+        fig.add_hline(y=fos_target, line_dash="dash", line_color="#f87171",
+                      line_width=1, opacity=0.6,
+                      annotation_text=f"Target FoS = {fos_target}",
+                      annotation_position="top left",
+                      annotation_font=dict(size=10, color="#f87171"))
+    fig.update_layout(**PLOTLY_LAYOUT, title=dict(text=title, font=dict(size=13)))
+    fig.update_xaxes(title_text=x_label)
+    fig.update_yaxes(title_text=y_label)
+    return fig
+
+
+def card(title=None):
+    """Open a card container."""
+    hd = f'<div class="card-hd">{title}</div>' if title else ""
+    return f'<div class="card">{hd}'
+
+
+CARD_END = "</div>"
+
+
+# ─── Header ──────────────────────────────────────────────────────────────────
+st.markdown(
+    '<div class="mo-hdr">'
+    '<div class="mo-hdr-l">'
+    '<div class="mo-logo">'
+    '<svg width="18" height="18" viewBox="0 0 18 18">'
+    '<rect x="3" y="3" width="12" height="12" rx="1" transform="rotate(45 9 9)" '
+    'fill="none" stroke="white" stroke-width="1.8"/>'
+    '</svg></div>'
+    '<div>'
+    '<div class="mo-brand-name">MechOpt</div>'
+    '<div class="mo-brand-sub">Mechanical design screening · first-pass static analysis</div>'
+    '</div></div>'
+    '<div class="mo-chip">'
+    '<span class="mo-chip-dot"></span>SI units · static load'
+    '</div></div>',
+    unsafe_allow_html=True,
+)
+
+
+# ─── Tabs ────────────────────────────────────────────────────────────────────
 tab_beam, tab_bracket, tab_compare, tab_assumptions = st.tabs([
-    "Beam Optimizer", "Bracket Analysis", "Compare Designs",
-    "Assumptions & Limitations",
+    "Beam Optimizer", "Bracket Analysis", "Compare Designs", "Assumptions",
 ])
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
+# ═════════════════════════════════════════════════════════════════════════════
 # TAB 1 — BEAM OPTIMIZER
-# ═══════════════════════════════════════════════════════════════════════════════
+# ═════════════════════════════════════════════════════════════════════════════
 with tab_beam:
 
-    # ── Inputs ────────────────────────────────────────────────────────────────
-    inp_left, inp_right = st.columns([3, 1])
+    rail, results = st.columns([1, 3], gap="large")
 
-    with inp_left:
-        st.subheader("Loading")
-        lc1, lc2, lc3, lc4 = st.columns(4)
-        with lc1:
-            load = st.number_input("Load P (N)", min_value=1.0, value=500.0,
-                                   step=50.0, key="beam_load")
-        with lc2:
-            length = st.number_input("Span L (m)", min_value=0.01, value=1.0,
-                                     step=0.1, key="beam_length")
-        with lc3:
-            load_case = st.selectbox("Load Case",
-                                     ["cantilever_end", "simply_center"],
-                                     format_func=lambda x: x.replace("_", " ").title(),
-                                     key="beam_lc")
-        with lc4:
-            fos_target = st.number_input("Target FoS", min_value=1.0,
-                                         value=2.0, step=0.5, key="beam_fos")
-
-    with inp_right:
-        st.subheader("Objective")
-        priority = st.selectbox("Priority",
-                                ["balanced", "lightest", "cheapest", "safest"],
-                                format_func=str.title,
-                                key="beam_prio")
+    # ── Input rail ───────────────────────────────────────────────────────────
+    with rail:
+        st.markdown('<div class="rh" style="margin-top:0">Loading</div>',
+                    unsafe_allow_html=True)
+        load = st.number_input("Load P (N)", min_value=1.0, value=500.0,
+                               step=50.0, key="b_load")
+        length = st.number_input("Span L (m)", min_value=0.01, value=1.0,
+                                 step=0.1, key="b_len")
+        load_case = st.selectbox(
+            "Load case",
+            ["cantilever_end", "simply_center"],
+            format_func=lambda x: {
+                "cantilever_end": "Cantilever · end load",
+                "simply_center": "Simply supported · center",
+            }[x],
+            key="b_lc",
+        )
+        fos_target = st.number_input("Target FoS", min_value=1.0, value=2.0,
+                                     step=0.5, key="b_fos")
         defl_limit_mm = st.number_input(
-            "Max Deflection (mm)", min_value=0.0, value=0.0, step=0.5,
-            help="0 = no deflection limit", key="beam_defl")
+            "Max deflection (mm)", min_value=0.0, value=0.0, step=0.5,
+            help="0 = no limit", key="b_defl")
         deflection_limit = defl_limit_mm / 1000.0 if defl_limit_mm > 0 else None
 
-    with st.expander("Material & Section Filters", expanded=False):
-        fc1, fc2 = st.columns(2)
-        mat_options = {k: v.name for k, v in MATERIALS.items()}
-        with fc1:
-            selected_mats = st.multiselect(
-                "Materials", options=list(mat_options.keys()),
-                default=list(mat_options.keys()),
-                format_func=lambda k: mat_options[k], key="beam_mats")
-        with fc2:
-            all_secs = ["rectangle", "circle", "i_beam", "square_tube",
-                        "hollow_rectangle", "hollow_circle"]
-            selected_secs = st.multiselect(
-                "Section Types", options=all_secs,
-                default=["rectangle", "circle"],
-                format_func=lambda s: s.replace("_", " ").title(),
-                key="beam_secs")
+        st.markdown('<div class="rh">Priority</div>', unsafe_allow_html=True)
+        priority = st.radio(
+            "Objective", ["balanced", "lightest", "cheapest", "safest"],
+            format_func=str.title, horizontal=True, key="b_prio",
+            label_visibility="collapsed",
+        )
+
+        st.markdown('<div class="rh">Materials</div>', unsafe_allow_html=True)
+        mat_opts = {k: v.name for k, v in MATERIALS.items()}
+        selected_mats = st.multiselect(
+            "Materials", options=list(mat_opts.keys()),
+            default=list(mat_opts.keys()),
+            format_func=lambda k: mat_opts[k], key="b_mats",
+            label_visibility="collapsed",
+        )
+
+        st.markdown('<div class="rh">Cross-sections</div>',
+                    unsafe_allow_html=True)
+        all_secs = ["rectangle", "circle", "i_beam", "square_tube",
+                    "hollow_rectangle", "hollow_circle"]
+        sec_labels = {
+            "rectangle": "Rectangle", "circle": "Circle",
+            "i_beam": "I-Beam", "square_tube": "Sq. Tube",
+            "hollow_rectangle": "Box Tube", "hollow_circle": "Round Tube",
+        }
+        selected_secs = st.multiselect(
+            "Sections", options=all_secs,
+            default=["rectangle", "circle"],
+            format_func=lambda s: sec_labels.get(s, s),
+            key="b_secs", label_visibility="collapsed",
+        )
 
     if not selected_mats:
         selected_mats = list(MATERIALS.keys())
     if not selected_secs:
         selected_secs = ["rectangle", "circle"]
 
-    # ── Evaluate ──────────────────────────────────────────────────────────────
+    # ── Evaluate ─────────────────────────────────────────────────────────────
     try:
         df = evaluate_candidates(
             float(load), float(length), str(load_case), float(fos_target),
             material_keys=list(selected_mats),
             section_types=list(selected_secs),
-            deflection_limit=float(deflection_limit) if deflection_limit is not None else None,
+            deflection_limit=float(deflection_limit) if deflection_limit else None,
         )
     except Exception as e:
-        st.error(f"Error evaluating candidates: {e}")
-        import traceback
-        st.code(traceback.format_exc())
+        with results:
+            st.error(f"Evaluation error: {e}")
         st.stop()
 
-    safe = df[df["safe"]]
-    total_count = len(df)
-    safe_count = len(safe)
+    safe_df = df[df["safe"]]
+    n_total = len(df)
+    n_safe = len(safe_df)
 
-    # ── Recommendation card ───────────────────────────────────────────────────
-    st.divider()
+    # ── Results column ───────────────────────────────────────────────────────
+    with results:
 
-    if safe.empty:
-        st.markdown(
-            '<div class="mechopt-alert alert-danger">'
-            f'No safe design found among {total_count} candidates. '
-            'Try reducing the load, lowering the FoS target, or relaxing the deflection limit.'
-            '</div>',
-            unsafe_allow_html=True,
-        )
-    else:
-        rec = recommend(df, priority)
-
-        # Controlling constraint
-        fos_ratio = fos_target / rec["fos"] if rec["fos"] > 0 else 1.0
-        if deflection_limit is not None and deflection_limit > 0:
-            defl_ratio = rec["deflection"] / deflection_limit
-        else:
-            defl_ratio = 0.0
-
-        if deflection_limit is not None and defl_ratio > fos_ratio:
-            controlling = "Deflection"
-        elif fos_ratio > 0.5:
-            controlling = "Stress / Yielding"
-        else:
-            controlling = {"lightest": "Weight", "cheapest": "Cost"}.get(
-                priority, "Stress / Yielding")
-
-        # Status header with badge
-        badge_cls = "badge-safe" if rec["safe"] else "badge-unsafe"
-        badge_text = "SAFE" if rec["safe"] else "UNSAFE"
-        st.markdown(
-            f'<div class="rec-header">'
-            f'<span class="rec-title">Recommended: {rec["material"]} &mdash; {rec["section"]} ({rec["dims"]})</span>'
-            f'<span class="mechopt-badge {badge_cls}">{badge_text}</span>'
-            f'</div>',
-            unsafe_allow_html=True,
-        )
-
-        # Metrics
-        m1, m2, m3, m4, m5, m6 = st.columns(6)
-        delta_fos = rec["fos"] - fos_target
-        m1.metric("FoS", f"{rec['fos']:.2f}", delta=f"{delta_fos:+.2f} vs target")
-        m2.metric("Stress", f"{rec['stress'] / 1e6:.1f} MPa")
-        m3.metric("Deflection", f"{rec['deflection'] * 1e3:.2f} mm")
-        m4.metric("Weight", f"{rec['weight']:.4f} kg")
-        m5.metric("Cost", f"${rec['cost']:.2f}")
-        m6.metric("Controls", controlling)
-
-        # Explanation
-        defl_str = f"{rec['deflection'] * 1e3:.2f} mm"
-        if deflection_limit is not None:
-            defl_str += f" (limit: {defl_limit_mm:.1f} mm)"
-        st.markdown(
-            f'<div class="mechopt-alert alert-info">'
-            f'Selected as the <strong>{priority}</strong> safe option from '
-            f'<strong>{safe_count}</strong> safe / <strong>{total_count}</strong> total candidates. '
-            f'Stress FoS = <strong>{rec["fos"]:.2f}</strong> (target {fos_target:.1f}). '
-            f'Deflection = <strong>{defl_str}</strong>.'
-            f'</div>',
-            unsafe_allow_html=True,
-        )
-
-    # ── Interactive Section Editor ───────────────────────────────────────────
-    if not safe.empty:
-        st.divider()
-        st.subheader("Interactive Section Editor")
-        st.markdown(
-            '<div class="mechopt-alert alert-info">'
-            'Edit dimensions below or drag the blue handles on the drawing. '
-            'Python recomputes stress, deflection, and FoS on every change.'
-            '</div>',
-            unsafe_allow_html=True,
-        )
-
-        # Determine the section type and dims from the recommendation
-        _sec_name = rec["section"]
-        _sec_dims_str = rec["dims"]  # e.g. "30x30 mm", "d=30 mm"
-        _sec_mat_key = [k for k, v in MATERIALS.items() if v.name == rec["material"]][0]
-        _sec_mat = MATERIALS[_sec_mat_key]
-
-        # Parse dims from the recommendation row to build initial dims dict
-        _editor_dims = {}
-        _d_mm = float(rec.get("dims", "30").split("=")[-1].split("x")[0].split()[0]) if rec["dims"] else 30.0
-        if _sec_name == "rectangle":
-            # dims like "30x30 mm"
-            parts = rec["dims"].replace(" mm", "").split("x")
-            _editor_dims = {"b": float(parts[0]) / 1000, "h": float(parts[1]) / 1000}
-        elif _sec_name == "circle":
-            # dims like "d=30 mm"
-            val = float(rec["dims"].replace("d=", "").replace(" mm", ""))
-            _editor_dims = {"d": val / 1000}
-        elif _sec_name == "i_beam":
-            # dims like "30x30 tf=3.0/tw=3.0 mm"
-            parts = rec["dims"].replace(" mm", "").split()
-            outer = parts[0].split("x")
-            tf_val = float(parts[1].split("=")[1].split("/")[0])
-            tw_val = float(parts[1].split("=")[1].split("/")[1] if "/" in parts[1] else parts[2].split("=")[1])
-            _editor_dims = {"b": float(outer[0]) / 1000, "h": float(outer[1]) / 1000,
-                            "tf": tf_val / 1000, "tw": tw_val / 1000}
-        elif _sec_name == "square_tube":
-            # dims like "30x30 w=3.0 mm"
-            parts = rec["dims"].replace(" mm", "").split()
-            a_val = float(parts[0].split("x")[0])
-            w_val = float(parts[1].split("=")[1])
-            _editor_dims = {"a": a_val / 1000, "w": w_val / 1000}
-        elif _sec_name == "hollow_rectangle":
-            # dims like "30x30 w=3.0 mm"
-            parts = rec["dims"].replace(" mm", "").split()
-            outer = parts[0].split("x")
-            w_val = float(parts[1].split("=")[1])
-            _editor_dims = {"b": float(outer[0]) / 1000, "h": float(outer[1]) / 1000,
-                            "w": w_val / 1000}
-        elif _sec_name == "hollow_circle":
-            # dims like "d=30 di=22.0 mm" or "d=30/di=22 mm"
-            text = rec["dims"].replace(" mm", "")
-            d_val = float(text.split("d=")[1].split()[0].split("/")[0])
-            di_val = float(text.split("di=")[1].split()[0])
-            _editor_dims = {"d": d_val / 1000, "di": di_val / 1000}
-        else:
-            _editor_dims = {"b": 0.03, "h": 0.03}
-
-        # Check if user has edited dims via the component
-        _editor_results = {
-            "stress": rec["stress"],
-            "deflection": rec["deflection"],
-            "fos": rec["fos"],
-            "safe": bool(rec["safe"]),
-        }
-
-        # Use session state to persist user-edited dims across reruns
-        _state_key = "editor_dims"
-        if _state_key not in st.session_state:
-            st.session_state[_state_key] = None
-
-        _active_dims = st.session_state[_state_key] if st.session_state[_state_key] else _editor_dims
-
-        # Recompute with active dims
-        try:
-            if _sec_name == "rectangle":
-                _props = rectangle(_active_dims["b"], _active_dims["h"])
-            elif _sec_name == "circle":
-                _props = circle(_active_dims["d"])
-            elif _sec_name == "i_beam":
-                _props = i_beam(_active_dims["b"], _active_dims["h"],
-                                _active_dims["tf"], _active_dims["tw"])
-            elif _sec_name == "square_tube":
-                _props = square_tube(_active_dims["a"], _active_dims["w"])
-            elif _sec_name == "hollow_rectangle":
-                _props = hollow_rectangle(_active_dims["b"], _active_dims["h"],
-                                          _active_dims["w"])
-            elif _sec_name == "hollow_circle":
-                _props = hollow_circle(_active_dims["d"], _active_dims["di"])
-            else:
-                _props = rectangle(_active_dims.get("b", 0.03), _active_dims.get("h", 0.03))
-
-            _M = max_moment(float(load), float(length), str(load_case))
-            _sigma = max_stress(_M, _props)
-            _delta = max_deflection(float(load), float(length), _sec_mat.E, _props,
-                                    str(load_case))
-            _fos = factor_of_safety(_sigma, _sec_mat.sigma_y)
-            _is_safe = _fos >= float(fos_target)
-            if deflection_limit is not None and _delta > deflection_limit:
-                _is_safe = False
-
-            _editor_results = {
-                "stress": _sigma,
-                "deflection": _delta,
-                "fos": _fos,
-                "safe": _is_safe,
-            }
-        except (ValueError, ZeroDivisionError):
-            pass  # keep previous results on invalid geometry
-
-        user_dims = section_editor(
-            section=_sec_name,
-            dims=_active_dims,
-            results=_editor_results,
-            key="sec_editor",
-        )
-
-        if user_dims is not None:
-            st.session_state[_state_key] = user_dims
-            st.rerun()
-
-    # ── Candidate table (custom HTML table matching index.html) ───────────────
-    st.divider()
-    with st.expander(f"All Candidates ({safe_count} safe / {total_count} total)",
-                     expanded=False):
-        table_html = (
-            '<div style="overflow-x:auto;">'
-            '<table class="mechopt-table"><thead><tr>'
-            '<th>Material</th><th>Section</th><th>Dims</th>'
-            '<th class="text-right">FoS</th><th class="text-right">Stress (MPa)</th>'
-            '<th class="text-right">Defl (mm)</th><th class="text-right">Weight (kg)</th>'
-            '<th class="text-right">Cost ($)</th><th>Safe</th>'
-            '</tr></thead><tbody>'
-        )
-        for _, row in df.iterrows():
-            row_cls = "safe-row" if row["safe"] else "unsafe-row"
-            badge_cls = "badge-safe" if row["safe"] else "badge-unsafe"
-            safe_text = "Yes" if row["safe"] else "No"
-            table_html += (
-                f'<tr class="{row_cls}">'
-                f'<td>{row["material"]}</td>'
-                f'<td>{row["section"]}</td>'
-                f'<td>{row["dims"]}</td>'
-                f'<td class="text-right">{row["fos"]:.2f}</td>'
-                f'<td class="text-right">{row["stress"] / 1e6:.1f}</td>'
-                f'<td class="text-right">{row["deflection"] * 1e3:.2f}</td>'
-                f'<td class="text-right">{row["weight"]:.4f}</td>'
-                f'<td class="text-right">{row["cost"]:.2f}</td>'
-                f'<td><span class="mini-badge {badge_cls}">{safe_text}</span></td>'
-                f'</tr>'
+        # 1. Recommendation card ──────────────────────────────────────────────
+        if safe_df.empty:
+            st.markdown(
+                f'<div class="no-safe">'
+                f'<b>No safe design among {n_total} candidates</b>'
+                f'<p>Try reducing the load, lowering the target FoS, adding more '
+                f'materials or sections, or removing the deflection limit.</p></div>',
+                unsafe_allow_html=True,
             )
-        table_html += '</tbody></table></div>'
-        st.markdown(table_html, unsafe_allow_html=True)
+            rec = None
+        else:
+            rec = recommend(df, priority)
+            _mat_key = [k for k, v in MATERIALS.items()
+                        if v.name == rec["material"]][0]
+            _mat = MATERIALS[_mat_key]
 
-    # ── Tradeoff plots ────────────────────────────────────────────────────────
-    with st.expander("Tradeoff Plots", expanded=True):
-        pc1, pc2 = st.columns(2)
-        with pc1:
-            st.caption("Weight vs FoS")
-            st.scatter_chart(df, x="weight", y="fos", color="material",
-                             x_label="Weight (kg)", y_label="Factor of Safety")
-        with pc2:
-            st.caption("Cost vs FoS")
-            st.scatter_chart(df, x="cost", y="fos", color="material",
-                             x_label="Cost ($)", y_label="Factor of Safety")
+            fos_ratio = fos_target / rec["fos"] if rec["fos"] > 0 else 1.0
+            defl_ratio = (rec["deflection"] / deflection_limit
+                          if deflection_limit and deflection_limit > 0 else 0.0)
+            if deflection_limit and defl_ratio > fos_ratio:
+                controlling = "Deflection"
+            elif fos_ratio > 0.5:
+                controlling = "Stress / Yielding"
+            else:
+                controlling = {"lightest": "Weight", "cheapest": "Cost"}.get(
+                    priority, "Stress / Yielding")
+
+            badge_cls = "badge-safe" if rec["safe"] else "badge-unsafe"
+            badge_txt = "SAFE" if rec["safe"] else "UNSAFE"
+            svg_html = section_svg(rec["section"])
+
+            defl_str = f'{rec["deflection"]*1e3:.2f} mm'
+            if deflection_limit:
+                defl_str += f" (limit {defl_limit_mm:.1f} mm)"
+
+            st.markdown(
+                f'<div class="card rec-card">'
+                f'<div style="display:flex;justify-content:space-between;align-items:flex-start;">'
+                f'<div>'
+                f'<div class="rec-label">Recommended · {priority.title()}</div>'
+                f'<div class="rec-mat">{rec["material"]}</div>'
+                f'<div class="rec-sec">{rec["section"].replace("_"," ").title()} · '
+                f'{rec["dims"]}</div>'
+                f'</div>'
+                f'<span class="badge {badge_cls}">{badge_txt}</span>'
+                f'</div>'
+                f'<div class="rec-body">'
+                f'<div class="rec-svg">{svg_html}</div>'
+                f'<div class="rec-tiles" style="flex:1;">'
+                f'</div></div>'
+                f'</div>',
+                unsafe_allow_html=True,
+            )
+
+            # Metric tiles
+            m1, m2, m3, m4, m5, m6 = st.columns(6)
+            delta_fos = rec["fos"] - fos_target
+            fos_color = "normal" if delta_fos >= 0 else "inverse"
+            m1.metric("Factor of Safety", f"{rec['fos']:.2f}",
+                      delta=f"{delta_fos:+.2f} vs target",
+                      delta_color=fos_color)
+            m2.metric("Max Stress",
+                      f"{rec['stress']/1e6:.1f} MPa",
+                      delta=f"σy = {_mat.sigma_y/1e6:.0f} MPa",
+                      delta_color="off")
+            m3.metric("Deflection",
+                      f"{rec['deflection']*1e3:.2f} mm",
+                      delta=f"limit {defl_limit_mm:.1f} mm" if deflection_limit else "no limit",
+                      delta_color="off")
+            m4.metric("Weight", f"{rec['weight']:.4f} kg")
+            m5.metric("Cost", f"${rec['cost']:.2f}")
+            m6.metric("Controls", controlling)
+
+            # Utilisation bars
+            bars = util_bar("Stress utilisation",
+                            rec["stress"] / _mat.sigma_y if _mat.sigma_y else 0,
+                            invert=True)
+            if deflection_limit and deflection_limit > 0:
+                bars += util_bar("Deflection utilisation",
+                                 rec["deflection"] / deflection_limit,
+                                 invert=True)
+            st.markdown(bars, unsafe_allow_html=True)
+
+            # Footer note
+            st.markdown(
+                f'<div class="rec-foot">'
+                f'Picked as the <strong>{priority}</strong> option from '
+                f'<strong>{n_safe}</strong> / {n_total} safe candidates. '
+                f'FoS = <strong>{rec["fos"]:.2f}</strong> vs target {fos_target:.1f}. '
+                f'Peak deflection <strong>{defl_str}</strong>. '
+                f'Governed by <strong>{controlling.lower()}</strong>.'
+                f'</div>',
+                unsafe_allow_html=True,
+            )
+
+        # 2. Tradeoff space ───────────────────────────────────────────────────
+        st.markdown(card("Tradeoff space"), unsafe_allow_html=True)
+        tc1, tc2 = st.columns(2)
+        with tc1:
+            st.plotly_chart(
+                scatter_plot(df, "weight", "fos", "Weight (kg)",
+                             "Factor of Safety", float(fos_target),
+                             "Weight vs FoS", rec),
+                use_container_width=True, key="p_wt",
+            )
+        with tc2:
+            st.plotly_chart(
+                scatter_plot(df, "cost", "fos", "Cost ($)",
+                             "Factor of Safety", float(fos_target),
+                             "Cost vs FoS", rec),
+                use_container_width=True, key="p_cost",
+            )
+        st.markdown(CARD_END, unsafe_allow_html=True)
+
+        # 3. All candidates table ─────────────────────────────────────────────
+        show_all = st.checkbox("Show all candidates (including unsafe)",
+                               value=False, key="b_show_all")
+        view_df = df if show_all else safe_df
+        label_text = (f"All candidates — {n_safe} safe / {n_total} total"
+                      if show_all
+                      else f"Safe candidates — {n_safe} of {n_total}")
+        st.markdown(f'{card(label_text)}', unsafe_allow_html=True)
+        thtml = '<table class="mt"><thead><tr>'
+        thtml += ('<th>Material</th><th>Section</th><th>Dims</th>'
+                  '<th class="n">FoS</th><th class="n">σ MPa</th>'
+                  '<th class="n">δ mm</th><th class="n">kg</th>'
+                  '<th class="n">$</th><th>Status</th>')
+        thtml += '</tr></thead><tbody>'
+        sorted_df = view_df.sort_values(["safe", "fos"],
+                                        ascending=[False, False])
+        for _, row in sorted_df.iterrows():
+            rc = "row-safe" if row["safe"] else "row-fail"
+            dot_c = "#34d399" if row["safe"] else "#f87171"
+            thtml += (
+                f'<tr class="{rc}">'
+                f'<td>{mdot(row["material"])}{row["material"]}</td>'
+                f'<td>{row["section"].replace("_"," ").title()}</td>'
+                f'<td>{row["dims"]}</td>'
+                f'<td class="n">{row["fos"]:.2f}</td>'
+                f'<td class="n">{row["stress"]/1e6:.1f}</td>'
+                f'<td class="n">{row["deflection"]*1e3:.2f}</td>'
+                f'<td class="n">{row["weight"]:.4f}</td>'
+                f'<td class="n">{row["cost"]:.2f}</td>'
+                f'<td><span style="display:inline-block;width:8px;height:8px;'
+                f'border-radius:50%;background:{dot_c};"></span></td></tr>')
+        thtml += '</tbody></table>'
+        st.markdown(thtml, unsafe_allow_html=True)
+        st.markdown(CARD_END, unsafe_allow_html=True)
+
+    # ── Section editor (below main layout) ───────────────────────────────────
+    if rec is not None:
+        with st.expander("Interactive section editor — drag handles to reshape",
+                         expanded=False):
+            _sec_name = rec["section"]
+            _sec_mat_key = [k for k, v in MATERIALS.items()
+                            if v.name == rec["material"]][0]
+            _sec_mat = MATERIALS[_sec_mat_key]
+
+            _editor_dims = {}
+            if _sec_name == "rectangle":
+                parts = rec["dims"].replace(" mm", "").split("x")
+                _editor_dims = {"b": float(parts[0]) / 1000,
+                                "h": float(parts[1]) / 1000}
+            elif _sec_name == "circle":
+                val = float(rec["dims"].replace("d=", "").replace(" mm", ""))
+                _editor_dims = {"d": val / 1000}
+            elif _sec_name == "i_beam":
+                parts = rec["dims"].replace(" mm", "").split()
+                outer = parts[0].split("x")
+                tf_val = float(parts[1].split("=")[1].split("/")[0])
+                tw_val = float(parts[1].split("=")[1].split("/")[1]
+                               if "/" in parts[1] else parts[2].split("=")[1])
+                _editor_dims = {"b": float(outer[0]) / 1000,
+                                "h": float(outer[1]) / 1000,
+                                "tf": tf_val / 1000, "tw": tw_val / 1000}
+            elif _sec_name == "square_tube":
+                parts = rec["dims"].replace(" mm", "").split()
+                _editor_dims = {"a": float(parts[0].split("x")[0]) / 1000,
+                                "w": float(parts[1].split("=")[1]) / 1000}
+            elif _sec_name == "hollow_rectangle":
+                parts = rec["dims"].replace(" mm", "").split()
+                outer = parts[0].split("x")
+                _editor_dims = {"b": float(outer[0]) / 1000,
+                                "h": float(outer[1]) / 1000,
+                                "w": float(parts[1].split("=")[1]) / 1000}
+            elif _sec_name == "hollow_circle":
+                text = rec["dims"].replace(" mm", "")
+                _editor_dims = {
+                    "d": float(text.split("d=")[1].split()[0].split("/")[0]) / 1000,
+                    "di": float(text.split("di=")[1].split()[0]) / 1000}
+            else:
+                _editor_dims = {"b": 0.03, "h": 0.03}
+
+            _editor_results = {"stress": rec["stress"],
+                               "deflection": rec["deflection"],
+                               "fos": rec["fos"], "safe": bool(rec["safe"])}
+
+            if "editor_dims" not in st.session_state:
+                st.session_state["editor_dims"] = None
+            _active_dims = (st.session_state["editor_dims"]
+                            if st.session_state["editor_dims"] else _editor_dims)
+
+            try:
+                _sfn = {
+                    "rectangle": lambda d: rectangle(d["b"], d["h"]),
+                    "circle": lambda d: circle(d["d"]),
+                    "i_beam": lambda d: i_beam(d["b"], d["h"], d["tf"], d["tw"]),
+                    "square_tube": lambda d: square_tube(d["a"], d["w"]),
+                    "hollow_rectangle": lambda d: hollow_rectangle(d["b"], d["h"], d["w"]),
+                    "hollow_circle": lambda d: hollow_circle(d["d"], d["di"]),
+                }
+                _props = _sfn.get(
+                    _sec_name,
+                    lambda d: rectangle(d.get("b", .03), d.get("h", .03)),
+                )(_active_dims)
+                _M = max_moment(float(load), float(length), str(load_case))
+                _sigma = max_stress(_M, _props)
+                _delta = max_deflection(float(load), float(length), _sec_mat.E,
+                                        _props, str(load_case))
+                _fos = factor_of_safety(_sigma, _sec_mat.sigma_y)
+                _safe = _fos >= float(fos_target)
+                if deflection_limit and _delta > deflection_limit:
+                    _safe = False
+                _editor_results = {"stress": _sigma, "deflection": _delta,
+                                   "fos": _fos, "safe": _safe}
+            except (ValueError, ZeroDivisionError):
+                pass
+
+            user_dims = section_editor(section=_sec_name, dims=_active_dims,
+                                       results=_editor_results, key="sec_editor")
+            if user_dims is not None:
+                st.session_state["editor_dims"] = user_dims
+                st.rerun()
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
+# ═════════════════════════════════════════════════════════════════════════════
 # TAB 2 — BRACKET ANALYSIS
-# ═══════════════════════════════════════════════════════════════════════════════
+# ═════════════════════════════════════════════════════════════════════════════
 with tab_bracket:
-    st.markdown(
-        '<p class="mechopt-subtitle">Simplified cantilever plate with bolt group &mdash; see Assumptions tab</p>',
-        unsafe_allow_html=True,
-    )
 
-    # ── Inputs in two panels ─────────────────────────────────────────────────
-    col_plate, col_bolts = st.columns(2)
+    br_rail, br_results = st.columns([1, 3], gap="large")
 
-    with col_plate:
-        st.markdown('<div class="mechopt-panel">', unsafe_allow_html=True)
-        st.subheader("Plate / Arm")
-        pc1, pc2 = st.columns(2)
-        with pc1:
-            br_load = st.number_input("Load P (N)", min_value=1.0, value=500.0,
-                                      step=50.0, key="br_load")
-            br_offset = st.number_input("Load Offset e (mm)", min_value=1.0,
-                                        value=150.0, step=10.0, key="br_offset") / 1000.0
-            mat_options_br = {k: v.name for k, v in MATERIALS.items()}
-            br_mat_key = st.selectbox("Material",
-                                      options=list(mat_options_br.keys()),
-                                      format_func=lambda k: mat_options_br[k],
-                                      key="br_mat")
-        with pc2:
-            br_width = st.number_input("Width (mm)", min_value=5.0,
-                                       value=80.0, step=5.0, key="br_w") / 1000.0
-            br_thick = st.number_input("Thickness (mm)", min_value=1.0,
-                                       value=10.0, step=1.0, key="br_t") / 1000.0
-            br_fos = st.number_input("Target FoS", min_value=1.0, value=2.0,
-                                     step=0.5, key="br_fos")
-            br_defl_mm = st.number_input("Max Deflection (mm), 0 = none",
-                                         min_value=0.0, value=0.0, step=0.5,
-                                         key="br_defl")
-            br_defl_limit = br_defl_mm / 1000.0 if br_defl_mm > 0 else None
-        st.markdown('</div>', unsafe_allow_html=True)
+    with br_rail:
+        st.markdown('<div class="rh" style="margin-top:0">Plate / Arm</div>',
+                    unsafe_allow_html=True)
+        br_load = st.number_input("Load P (N)", min_value=1.0, value=500.0,
+                                  step=50.0, key="br_load")
+        br_offset = st.number_input("Offset e (mm)", min_value=1.0,
+                                    value=150.0, step=10.0,
+                                    key="br_offset") / 1000.0
+        br_width = st.number_input("Width (mm)", min_value=5.0, value=80.0,
+                                   step=5.0, key="br_w") / 1000.0
+        br_thick = st.number_input("Thickness (mm)", min_value=1.0, value=10.0,
+                                   step=1.0, key="br_t") / 1000.0
+        mat_opts_br = {k: v.name for k, v in MATERIALS.items()}
+        br_mat_key = st.selectbox("Material", list(mat_opts_br.keys()),
+                                  format_func=lambda k: mat_opts_br[k],
+                                  key="br_mat")
+        br_fos = st.number_input("Target FoS", min_value=1.0, value=2.0,
+                                 step=0.5, key="br_fos")
+        br_defl_mm = st.number_input("Max deflection (mm)", min_value=0.0,
+                                     value=0.0, step=0.5,
+                                     help="0 = no limit", key="br_defl")
+        br_defl_limit = br_defl_mm / 1000.0 if br_defl_mm > 0 else None
 
-    with col_bolts:
-        st.markdown('<div class="mechopt-panel">', unsafe_allow_html=True)
-        st.subheader("Bolt Group")
-        bc1, bc2 = st.columns(2)
-        with bc1:
-            bolt_count = st.number_input("Bolt Count", min_value=1,
-                                         value=4, step=1, key="br_bn")
-            bolt_dia = st.number_input("Bolt Diameter (mm)", min_value=2.0,
-                                       value=10.0, step=1.0, key="br_bd") / 1000.0
-        with bc2:
-            bolt_spacing = st.number_input("Vertical Spacing (mm)",
-                                           min_value=5.0, value=40.0, step=5.0,
-                                           key="br_bs") / 1000.0
-            bolt_allow = st.number_input("Bolt Allowable Stress (MPa)",
-                                         min_value=50.0, value=640.0, step=50.0,
-                                         key="br_ba") * 1e6
-        st.markdown('</div>', unsafe_allow_html=True)
+        st.markdown('<div class="rh">Bolt Group</div>', unsafe_allow_html=True)
+        bolt_count = st.number_input("Bolt count", min_value=1, value=4,
+                                     step=1, key="br_bn")
+        bolt_dia = st.number_input("Diameter (mm)", min_value=2.0, value=10.0,
+                                   step=1.0, key="br_bd") / 1000.0
+        bolt_spacing = st.number_input("V-spacing (mm)", min_value=5.0,
+                                       value=40.0, step=5.0,
+                                       key="br_bs") / 1000.0
+        bolt_allow = st.number_input("Allowable stress (MPa)", min_value=50.0,
+                                     value=640.0, step=50.0,
+                                     key="br_ba") * 1e6
 
-    # ── Evaluate ──────────────────────────────────────────────────────────────
-    mat = MATERIALS[br_mat_key]
-    result = evaluate_bracket(
+        st.markdown(bracket_svg(), unsafe_allow_html=True)
+
+    br_mat = MATERIALS[br_mat_key]
+    br_result = evaluate_bracket(
         P=br_load, e=br_offset, width=br_width, thickness=br_thick,
-        mat=mat, fos_target=br_fos, bolt_count=bolt_count,
+        mat=br_mat, fos_target=br_fos, bolt_count=bolt_count,
         bolt_diameter=bolt_dia, bolt_spacing_v=bolt_spacing,
         bolt_sigma_allow=bolt_allow, deflection_limit=br_defl_limit,
     )
 
-    # ── Results ───────────────────────────────────────────────────────────────
-    st.divider()
-
-    ctrl_label = result.controlling.replace("_", " ").title()
-    badge_cls = "badge-safe" if result.safe else "badge-unsafe"
-    badge_text = "SAFE" if result.safe else "UNSAFE"
-
-    st.markdown(
-        f'<div class="rec-header">'
-        f'<span class="rec-title">Result &mdash; Controlled by {ctrl_label}</span>'
-        f'<span class="mechopt-badge {badge_cls}">{badge_text}</span>'
-        f'</div>',
-        unsafe_allow_html=True,
-    )
-
-    # Overall metrics
-    ov1, ov2, ov3 = st.columns(3)
-    delta_fos_br = result.overall_fos - br_fos
-    ov1.metric("Overall FoS", f"{result.overall_fos:.2f}",
-               delta=f"{delta_fos_br:+.2f} vs target")
-    ov2.metric("Plate Deflection", f"{result.plate_deflection * 1e3:.3f} mm")
-    ov3.metric("Moment", f"{br_load * br_offset:.1f} N-m")
-
-    # Plate vs Bolt side-by-side in panels
-    res_plate, res_bolt = st.columns(2)
-
-    with res_plate:
-        st.markdown('<div class="mechopt-panel">', unsafe_allow_html=True)
-        st.markdown("### Plate")
-        pp1, pp2, pp3 = st.columns(3)
-        pp1.metric("Stress", f"{result.plate_stress / 1e6:.1f} MPa")
-        pp2.metric("FoS", f"{result.plate_fos:.2f}")
-        pp3.metric("Deflection", f"{result.plate_deflection * 1e3:.3f} mm")
-        st.markdown('</div>', unsafe_allow_html=True)
-
-    with res_bolt:
-        st.markdown('<div class="mechopt-panel">', unsafe_allow_html=True)
-        st.markdown("### Bolt Group")
-        bb1, bb2, bb3, bb4 = st.columns(4)
-        bb1.metric("Shear/Bolt", f"{result.bolt.shear_per_bolt:.1f} N")
-        bb2.metric("Max Tension", f"{result.bolt.max_tension:.1f} N")
-        bb3.metric("Bolt FoS", f"{result.bolt.bolt_fos:.2f}")
-        bb4.metric("Utilization", f"{result.bolt.combined_utilization:.0%}")
-        st.markdown('</div>', unsafe_allow_html=True)
-
-    # Engineering interpretation
-    if result.controlling == "plate_bending":
-        advice = (
-            "<strong>Plate bending</strong> controls this design. Bending stiffness scales "
-            "with thickness cubed (I ~ t&sup3;), so increasing plate thickness is "
-            "the most effective change. Switching to a higher-strength material will also help."
+    with br_results:
+        ctrl = br_result.controlling.replace("_", " ").title()
+        b_cls = "badge-safe" if br_result.safe else "badge-unsafe"
+        b_txt = "SAFE" if br_result.safe else "UNSAFE"
+        st.markdown(
+            f'{card()}'
+            f'<div style="display:flex;justify-content:space-between;'
+            f'align-items:flex-start;margin-bottom:4px;">'
+            f'<div>'
+            f'<div class="rec-label">Result · controlled by {ctrl}</div>'
+            f'<div style="font-size:1.1rem;font-weight:700;margin-top:4px;">'
+            f'Cantilever plate + bolt group</div>'
+            f'<div style="font-size:0.84rem;color:var(--muted);margin-top:2px;">'
+            f'M = {br_load * br_offset:.1f} N·m · {bolt_count} bolts · '
+            f'{br_mat.name}</div>'
+            f'</div>'
+            f'<span class="badge {b_cls}">{b_txt}</span>'
+            f'</div>{CARD_END}',
+            unsafe_allow_html=True,
         )
-    elif result.controlling == "bolt":
-        advice = (
-            "The <strong>bolt group</strong> controls this design. Consider larger bolt "
-            "diameter, more bolts, or greater vertical spacing. Increasing plate thickness "
-            "will not help bolt stresses."
+
+        ov1, ov2, ov3 = st.columns(3)
+        ov1.metric("Overall FoS", f"{br_result.overall_fos:.2f}",
+                   delta=f"{br_result.overall_fos - br_fos:+.2f} vs target")
+        ov2.metric("Plate Deflection",
+                   f"{br_result.plate_deflection * 1e3:.3f} mm")
+        ov3.metric("Applied Moment", f"{br_load * br_offset:.1f} N·m")
+
+        bars_html = util_bar("Plate stress",
+                             br_result.plate_stress / br_mat.sigma_y
+                             if br_mat.sigma_y else 0, invert=True)
+        bars_html += util_bar("Bolt combined",
+                              br_result.bolt.combined_utilization, invert=True)
+        if br_defl_limit and br_defl_limit > 0:
+            bars_html += util_bar("Deflection budget",
+                                  br_result.plate_deflection / br_defl_limit,
+                                  invert=True)
+        st.markdown(bars_html, unsafe_allow_html=True)
+
+        dp, db = st.columns(2)
+        with dp:
+            st.markdown(card("Plate"), unsafe_allow_html=True)
+            pp1, pp2, pp3 = st.columns(3)
+            pp1.metric("Bending Stress",
+                       f"{br_result.plate_stress / 1e6:.1f} MPa")
+            pp2.metric("Plate FoS", f"{br_result.plate_fos:.2f}")
+            pp3.metric("Tip Deflection",
+                       f"{br_result.plate_deflection * 1e3:.3f} mm")
+            st.markdown(CARD_END, unsafe_allow_html=True)
+        with db:
+            st.markdown(card("Bolt group"), unsafe_allow_html=True)
+            bb1, bb2, bb3, bb4 = st.columns(4)
+            bb1.metric("Shear / Bolt",
+                       f"{br_result.bolt.shear_per_bolt:.1f} N")
+            bb2.metric("Peak Tension",
+                       f"{br_result.bolt.max_tension:.1f} N")
+            bb3.metric("Bolt FoS", f"{br_result.bolt.bolt_fos:.2f}")
+            bb4.metric("Utilisation",
+                       f"{br_result.bolt.combined_utilization:.0%}")
+            st.markdown(CARD_END, unsafe_allow_html=True)
+
+        if br_result.controlling == "plate_bending":
+            advice = ("The <strong>plate</strong> is the weak link. Stiffness "
+                      "scales with thickness cubed — even a small increase in "
+                      "plate thickness helps significantly. A stronger material "
+                      "also works.")
+        elif br_result.controlling == "bolt":
+            advice = ("The <strong>bolt group</strong> governs. Try larger bolt "
+                      "diameter, more bolts, or wider vertical spacing. "
+                      "Changing the plate won't help.")
+        elif br_result.controlling == "deflection":
+            advice = ("<strong>Deflection</strong> controls. Increase plate "
+                      "thickness, use a stiffer material (higher E), or "
+                      "shorten the load offset.")
+        else:
+            advice = "Design satisfies all checks."
+
+        cls = "callout-green" if br_result.safe else "callout-amber"
+        ttl = "Design is adequate" if br_result.safe else "Design does not pass"
+        st.markdown(
+            f'<div class="callout {cls}">'
+            f'<strong>{ttl}.</strong> {advice}</div>',
+            unsafe_allow_html=True,
         )
-    elif result.controlling == "deflection":
-        advice = (
-            "<strong>Deflection</strong> controls this design. Consider thicker plate, "
-            "stiffer material (higher E), or shorter load offset."
-        )
-    else:
-        advice = "Design is within all limits."
-
-    alert_cls = "alert-success" if result.safe else "alert-warning"
-    st.markdown(
-        f'<div class="mechopt-alert {alert_cls}">{advice}</div>',
-        unsafe_allow_html=True,
-    )
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
+# ═════════════════════════════════════════════════════════════════════════════
 # TAB 3 — COMPARE DESIGNS
-# ═══════════════════════════════════════════════════════════════════════════════
+# ═════════════════════════════════════════════════════════════════════════════
 with tab_compare:
 
-    # ── Winners summary ───────────────────────────────────────────────────────
-    st.subheader("Beam Winners")
     safe_beams = df[df["safe"]]
+
     if safe_beams.empty:
         st.markdown(
-            '<div class="mechopt-alert alert-warning">'
-            'No safe beam designs. Adjust parameters in the Beam Optimizer tab.'
+            '<div class="callout callout-amber">'
+            'No safe beam designs under current inputs. Go to the '
+            '<strong>Beam Optimizer</strong> tab and adjust your inputs.'
             '</div>',
             unsafe_allow_html=True,
         )
     else:
-        winners = {}
-        for prio in ["lightest", "cheapest", "safest", "balanced"]:
+        st.markdown(card("Beam winners by objective"), unsafe_allow_html=True)
+        thtml = '<table class="mt"><thead><tr>'
+        thtml += ('<th>Priority</th><th>Material</th><th>Section · Dims</th>'
+                  '<th class="n">FoS</th><th class="n">σ MPa</th>'
+                  '<th class="n">δ mm</th><th class="n">kg</th>'
+                  '<th class="n">$</th></tr></thead><tbody>')
+        prio_map = {
+            "balanced": ("Balanced", "pp-bal"),
+            "lightest": ("Lightest", "pp-light"),
+            "cheapest": ("Cheapest", "pp-cheap"),
+            "safest":   ("Safest",   "pp-safe"),
+        }
+        for pkey, (plbl, pcls) in prio_map.items():
             try:
-                w = recommend(df, prio)
-                winners[prio.title()] = {
-                    "Material": w["material"],
-                    "Section": f'{w["section"]} ({w["dims"]})',
-                    "FoS": f'{w["fos"]:.2f}',
-                    "Stress (MPa)": f'{w["stress"] / 1e6:.1f}',
-                    "Defl (mm)": f'{w["deflection"] * 1e3:.2f}',
-                    "Weight (kg)": f'{w["weight"]:.4f}',
-                    "Cost ($)": f'{w["cost"]:.2f}',
-                }
+                w = recommend(df, pkey)
+                thtml += (
+                    f'<tr><td><span class="pp {pcls}">{plbl}</span></td>'
+                    f'<td>{mdot(w["material"])}{w["material"]}</td>'
+                    f'<td>{w["section"].replace("_"," ").title()} · {w["dims"]}</td>'
+                    f'<td class="n">{w["fos"]:.2f}</td>'
+                    f'<td class="n">{w["stress"]/1e6:.1f}</td>'
+                    f'<td class="n">{w["deflection"]*1e3:.2f}</td>'
+                    f'<td class="n">{w["weight"]:.4f}</td>'
+                    f'<td class="n">{w["cost"]:.2f}</td></tr>')
             except ValueError:
                 pass
+        thtml += '</tbody></table>'
+        st.markdown(thtml, unsafe_allow_html=True)
+        st.markdown(CARD_END, unsafe_allow_html=True)
 
-        if winners:
-            winners_df = pd.DataFrame(winners).T
-            winners_df.index.name = "Priority"
-            st.dataframe(winners_df, width="stretch")
-
-    # ── Top 5 tables (custom HTML) ───────────────────────────────────────────
-    st.divider()
-    st.subheader("Top 5 Safe Beams")
-
-    if not safe_beams.empty:
-        safe_fmt = safe_beams.copy()
-        safe_fmt["Stress_MPa"] = safe_fmt["stress"] / 1e6
-        safe_fmt["Defl_mm"] = safe_fmt["deflection"] * 1e3
-
-        def mini_table_html(title, rows_df):
-            html = f'<h3 style="margin-bottom:8px;">{title}</h3>'
-            html += '<div style="overflow-x:auto;"><table class="mechopt-table"><thead><tr>'
-            html += '<th>Material</th><th>Section</th><th>Dims</th>'
-            html += '<th class="text-right">FoS</th><th class="text-right">Weight</th>'
-            html += '<th class="text-right">Cost</th></tr></thead><tbody>'
-            for _, r in rows_df.iterrows():
-                html += (
-                    f'<tr><td>{r["material"]}</td><td>{r["section"]}</td>'
-                    f'<td>{r["dims"]}</td><td class="text-right">{r["fos"]:.2f}</td>'
-                    f'<td class="text-right">{r["weight"]:.4f}</td>'
-                    f'<td class="text-right">${r["cost"]:.2f}</td></tr>'
-                )
-            html += '</tbody></table></div>'
-            return html
+        def top5_table(title, rows_df, metric_col, metric_label, fmt):
+            h = f'<div class="card-hd">{title}</div>'
+            h += '<table class="mt"><thead><tr>'
+            h += (f'<th>#</th><th>Material</th><th>Dims</th>'
+                  f'<th class="n">{metric_label}</th></tr></thead><tbody>')
+            for rank, (_, r) in enumerate(rows_df.iterrows(), 1):
+                h += (f'<tr><td style="color:var(--muted);">'
+                      f'{rank}</td>'
+                      f'<td>{mdot(r["material"])}{r["material"]}</td>'
+                      f'<td>{r["dims"]}</td>'
+                      f'<td class="n">{fmt(r[metric_col])}</td></tr>')
+            return h + '</tbody></table>'
 
         tc1, tc2, tc3 = st.columns(3)
         with tc1:
             st.markdown(
-                mini_table_html("Lightest", safe_fmt.nsmallest(5, "weight")),
-                unsafe_allow_html=True,
-            )
+                card() +
+                top5_table("Lightest safe", safe_beams.nsmallest(5, "weight"),
+                           "weight", "kg", lambda v: f"{v:.4f}") +
+                CARD_END,
+                unsafe_allow_html=True)
         with tc2:
             st.markdown(
-                mini_table_html("Cheapest", safe_fmt.nsmallest(5, "cost")),
-                unsafe_allow_html=True,
-            )
+                card() +
+                top5_table("Cheapest safe", safe_beams.nsmallest(5, "cost"),
+                           "cost", "$", lambda v: f"{v:.2f}") +
+                CARD_END,
+                unsafe_allow_html=True)
         with tc3:
             st.markdown(
-                mini_table_html("Safest", safe_fmt.nlargest(5, "fos")),
-                unsafe_allow_html=True,
-            )
+                card() +
+                top5_table("Strongest safe", safe_beams.nlargest(5, "fos"),
+                           "fos", "FoS", lambda v: f"{v:.2f}") +
+                CARD_END,
+                unsafe_allow_html=True)
 
-    # ── Bracket summary ───────────────────────────────────────────────────────
-    st.divider()
-    st.subheader("Bracket Summary")
-
-    if "result" not in dir():
-        st.markdown(
-            '<div class="mechopt-alert alert-info">'
-            'Configure the Bracket Analysis tab to see results here.'
-            '</div>',
-            unsafe_allow_html=True,
-        )
-    else:
-        bs1, bs2, bs3, bs4, bs5 = st.columns(5)
-        bs1.metric("Overall FoS", f"{result.overall_fos:.2f}")
-        bs2.metric("Plate Stress", f"{result.plate_stress / 1e6:.1f} MPa")
-        bs3.metric("Bolt FoS", f"{result.bolt.bolt_fos:.2f}")
-        bs4.metric("Controls", result.controlling.replace("_", " ").title())
-        badge_cls = "badge-safe" if result.safe else "badge-unsafe"
-        badge_text = "SAFE" if result.safe else "UNSAFE"
-        bs5.markdown(
-            f'<div style="margin-top:8px;"><span class="mechopt-badge {badge_cls}">{badge_text}</span></div>',
-            unsafe_allow_html=True,
-        )
+    st.markdown(card("Bracket summary"), unsafe_allow_html=True)
+    bs1, bs2, bs3, bs4, bs5 = st.columns(5)
+    bs1.metric("Overall FoS", f"{br_result.overall_fos:.2f}")
+    bs2.metric("Plate Stress", f"{br_result.plate_stress / 1e6:.1f} MPa")
+    bs3.metric("Bolt FoS", f"{br_result.bolt.bolt_fos:.2f}")
+    bs4.metric("Controls", br_result.controlling.replace("_", " ").title())
+    bc2 = "badge-safe" if br_result.safe else "badge-unsafe"
+    bt2 = "SAFE" if br_result.safe else "UNSAFE"
+    bs5.markdown(f'<div style="margin-top:8px;">'
+                 f'<span class="badge {bc2}">{bt2}</span></div>',
+                 unsafe_allow_html=True)
+    st.markdown(CARD_END, unsafe_allow_html=True)
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# TAB 4 — ASSUMPTIONS & LIMITATIONS
-# ═══════════════════════════════════════════════════════════════════════════════
+# ═════════════════════════════════════════════════════════════════════════════
+# TAB 4 — ASSUMPTIONS
+# ═════════════════════════════════════════════════════════════════════════════
 with tab_assumptions:
 
     st.markdown(
-        '<div class="mechopt-alert alert-info">'
-        'MechOpt is a <strong>first-pass screening tool</strong>. It is not a substitute '
-        'for formal engineering analysis, detailed FEA, or professional review.'
+        '<div class="callout callout-blue">'
+        'MechOpt is a <strong>first-pass screening tool</strong>, not a substitute '
+        'for formal engineering analysis, detailed FEA, or professional review. '
+        'Verify all results with a qualified engineer before real use.'
         '</div>',
         unsafe_allow_html=True,
     )
 
-    col_a, col_b = st.columns(2)
+    ca, cb = st.columns(2)
 
-    with col_a:
-        st.markdown("""
-<h2 style="text-transform:uppercase;letter-spacing:0.5px;">What IS Modeled</h2>
-<ul class="assumptions-list">
-  <li>Linear-elastic material behaviour (Hooke's law)</li>
-  <li>Static point loads only</li>
-  <li>Small-deflection Euler&ndash;Bernoulli beam theory</li>
-  <li>Prismatic (constant cross-section) beams</li>
-  <li>Yielding-based factor of safety</li>
-  <li>Simplified cantilever plate model for brackets</li>
-  <li>Linear elastic bolt group load distribution</li>
-  <li>Direct shear equally distributed among bolts</li>
-  <li>Moment-induced bolt tension from centroid distance</li>
-</ul>
-<h2 style="margin-top:20px;text-transform:uppercase;letter-spacing:0.5px;">Material Data</h2>
-<ul class="assumptions-list">
-  <li>Nominal room-temperature properties for typical grades</li>
-  <li>Cost figures are rough order-of-magnitude</li>
-  <li>Treat cost comparisons as <strong>relative</strong>, not absolute</li>
-</ul>
-""", unsafe_allow_html=True)
+    with ca:
+        st.markdown(
+            card("What IS modeled") +
+            '<ul class="al grn">'
+            "<li>Linear-elastic material behaviour (Hooke's law)</li>"
+            "<li>Static point loads only</li>"
+            "<li>Small-deflection Euler–Bernoulli beam theory</li>"
+            "<li>Prismatic (constant cross-section) beams</li>"
+            "<li>Yielding-based factor of safety</li>"
+            "<li>Simplified cantilever plate model for brackets</li>"
+            "<li>Linear-elastic bolt-group load distribution</li>"
+            "<li>Equal direct shear among bolts</li>"
+            "<li>Moment-induced bolt tension ∝ distance from centroid</li>"
+            "</ul>" + CARD_END,
+            unsafe_allow_html=True,
+        )
 
-    with col_b:
-        st.markdown("""
-<h2 style="text-transform:uppercase;letter-spacing:0.5px;">What is NOT Modeled</h2>
-<h3>Beam</h3>
-<ul class="assumptions-list">
-  <li>Buckling (lateral-torsional or local)</li>
-  <li>Stress concentrations (holes, notches, fillets)</li>
-  <li>Fatigue or cyclic loading</li>
-  <li>Shear deflection</li>
-  <li>Dynamic or impact loads</li>
-  <li>Weld or joint effects</li>
-  <li>Thermal effects</li>
-  <li>Combined loading (axial + bending + torsion)</li>
-</ul>
-<h3 style="margin-top:12px;">Bracket</h3>
-<ul class="assumptions-list">
-  <li>Weld design</li>
-  <li>Stress concentrations at bolt holes</li>
-  <li>Bearing, tear-out, or block shear</li>
-  <li>Prying action</li>
-  <li>Plate buckling</li>
-  <li>Bolt preload / thread engagement</li>
-  <li>FEA-level stress distribution</li>
-</ul>
-<h3 style="margin-top:12px;">General</h3>
-<ul class="assumptions-list">
-  <li>Corrosion / environmental degradation</li>
-  <li>Non-linear material behaviour</li>
-  <li>Large-deflection effects</li>
-</ul>
-""", unsafe_allow_html=True)
+    with cb:
+        st.markdown(
+            card("What is NOT modeled") +
+            '<div class="asec">Beam</div>'
+            '<ul class="al red">'
+            "<li>Lateral-torsional or local buckling</li>"
+            "<li>Stress concentrations at holes, notches, fillets</li>"
+            "<li>Fatigue or cyclic loading</li>"
+            "<li>Shear deflection (important for short, deep beams)</li>"
+            "<li>Dynamic or impact loads</li>"
+            "<li>Weld or joint effects</li>"
+            "<li>Thermal expansion / contraction</li>"
+            "<li>Combined loading (axial + bending + torsion)</li>"
+            "</ul>"
+            '<div class="asec">Bracket</div>'
+            '<ul class="al red">'
+            "<li>Weld design</li>"
+            "<li>Bearing, tear-out, block shear failure</li>"
+            "<li>Prying action on bolts</li>"
+            "<li>Plate buckling</li>"
+            "<li>Bolt preload and thread engagement</li>"
+            "<li>FEA-level stress distribution</li>"
+            "</ul>"
+            '<div class="asec">General</div>'
+            '<ul class="al red">'
+            "<li>Corrosion and environmental degradation</li>"
+            "<li>Non-linear material behaviour (plasticity)</li>"
+            "<li>Large-deflection / geometric non-linearity</li>"
+            "</ul>" + CARD_END,
+            unsafe_allow_html=True,
+        )
 
+    st.markdown(card("Material reference"), unsafe_allow_html=True)
+    thtml = '<table class="mt"><thead><tr>'
+    thtml += ('<th>Material</th><th class="n">E (GPa)</th>'
+              '<th class="n">σy (MPa)</th><th class="n">ρ (kg/m³)</th>'
+              '<th class="n">$/kg</th></tr></thead><tbody>')
+    for _k, m in MATERIALS.items():
+        thtml += (
+            f'<tr><td>{mdot(m.name)}{m.name}</td>'
+            f'<td class="n">{m.E/1e9:.0f}</td>'
+            f'<td class="n">{m.sigma_y/1e6:.0f}</td>'
+            f'<td class="n">{m.rho:.0f}</td>'
+            f'<td class="n">{m.cost:.1f}</td></tr>')
+    thtml += '</tbody></table>'
+    st.markdown(thtml, unsafe_allow_html=True)
     st.markdown(
-        '<div class="mechopt-alert alert-warning" style="margin-top:24px;">'
-        '<strong>Warning:</strong> Do not use this tool as the sole basis for manufacturing or '
-        'safety-critical design decisions. All results should be verified '
-        'by a qualified engineer before use in any real application.'
-        '</div>',
+        '<div style="font-size:0.78rem;color:var(--muted);margin-top:10px;">'
+        'Values are nominal room-temperature properties. Cost figures are rough '
+        'order-of-magnitude — use for relative comparisons only.</div>',
         unsafe_allow_html=True,
     )
+    st.markdown(CARD_END, unsafe_allow_html=True)
