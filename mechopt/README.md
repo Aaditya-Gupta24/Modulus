@@ -73,6 +73,23 @@ Buckling, stress concentrations, fatigue, shear deflection, dynamic/impact
 loading, and joint/weld effects. MechOpt is a first-pass screening tool, not a
 substitute for detailed analysis or review by a qualified engineer.
 
+## Interactive section editor
+
+The Beam Optimizer tab includes a **bidirectional Streamlit custom component**
+that draws the recommended cross-section as an SVG and lets you edit dimensions
+interactively. Data flows both ways:
+
+- **Python → HTML:** current section type, dimensions, and computed results
+  (stress, deflection, FoS, safe/unsafe) are sent to the frontend on each render.
+- **HTML → Python:** when you change a dimension via the number inputs or by
+  dragging the blue handles on the SVG, the updated dimensions are sent back to
+  Python, which recomputes all engineering quantities and re-renders.
+
+The component is implemented as a static `index.html` (vanilla JS, no build
+step) in `mechopt/components/section_editor/`, registered with
+`streamlit.components.v1.declare_component`. Supported section types: rectangle,
+circle, hollow circle, square tube, I-beam, and hollow rectangle.
+
 ## Run it
 
 ```bash
