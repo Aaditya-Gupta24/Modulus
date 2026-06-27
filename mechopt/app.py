@@ -490,6 +490,145 @@ def scatter_plot(df, x_col, y_col, x_label, y_label, fos_target, title,
     return fig
 
 
+def _design_label(row):
+    """Compact label for a candidate row."""
+    return f'{row["material"]} / {row["section"].replace("_", " ").title()} / {row["dims"]}'
+
+
+def tradeoff_html(df, fos_target, deflection_limit=None):
+    """Render beam tradeoff insight text from evaluated candidates."""
+    n_total = len(df)
+    if n_total == 0:
+        return (
+            '<div class="callout callout-amber">'
+            '<strong>No candidates were generated.</strong> Add at least one material and '
+            'one cross-section to populate the tradeoff space.'
+            '</div>'
+        )
+
+    safe_df = df[df["safe"]]
+    n_safe = len(safe_df)
+    best_fos = df.loc[df["fos"].idxmax()]
+    lightest_all = df.loc[df["weight"].idxmin()]
+    cheapest_all = df.loc[df["cost"].idxmin()]
+
+    def metric_tile(label, value, sub=""):
+        return (
+            '<div style="background:#151921;border:1px solid #2a2f42;'
+            'border-radius:6px;padding:12px 14px;min-height:78px;">'
+            f'<div style="font-size:10px;text-transform:uppercase;letter-spacing:.5px;'
+            f'color:#8b90a0;font-weight:700;">{label}</div>'
+            f'<div style="font-size:18px;color:#e8eaf0;font-weight:800;margin-top:4px;">{value}</div>'
+            f'<div style="font-size:12px;color:#8b90a0;margin-top:3px;">{sub}</div>'
+            '</div>'
+        )
+
+    if safe_df.empty:
+        closest = best_fos
+        fos_gap = max(float(fos_target) - float(closest["fos"]), 0.0)
+        defl_note = ""
+        if deflection_limit:
+            defl_ratio = closest["deflection"] / deflection_limit
+            defl_note = f" Its deflection is {defl_ratio:.1f}x the limit."
+
+        near = df.sort_values("fos", ascending=False).head(3)
+        rows = ""
+        for _, row in near.iterrows():
+            rows += (
+                '<tr>'
+                f'<td>{_design_label(row)}</td>'
+                f'<td class="n">{row["fos"]:.2f}</td>'
+                f'<td class="n">{row["weight"]:.4f}</td>'
+                f'<td class="n">${row["cost"]:.2f}</td>'
+                f'<td class="n">{row["deflection"]*1e3:.2f}</td>'
+                '</tr>'
+            )
+
+        safe_tile = metric_tile("Safe designs", f"0 / {n_total}",
+                                "No feasible option yet")
+        closest_tile = metric_tile("Closest FoS", f'{closest["fos"]:.2f}',
+                                   f"gap {fos_gap:.2f}")
+        lightest_tile = metric_tile("Lightest checked",
+                                    f'{lightest_all["weight"]:.4f} kg',
+                                    _design_label(lightest_all))
+        cheapest_tile = metric_tile("Lowest cost checked",
+                                    f'${cheapest_all["cost"]:.2f}',
+                                    _design_label(cheapest_all))
+
+        return (
+            '<div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));'
+            'gap:10px;margin-bottom:14px;">'
+            f'{safe_tile}{closest_tile}{lightest_tile}{cheapest_tile}'
+            '</div>'
+            '<div class="callout callout-amber">'
+            f'<strong>Tradeoff read:</strong> the best strength candidate is {_design_label(closest)} '
+            f'at FoS {closest["fos"]:.2f}, still short of the {float(fos_target):.1f} target.'
+            f'{defl_note} Increase section depth, enable tube/I-beam sections, choose a stronger '
+            'material, or relax the load/deflection requirement.'
+            '</div>'
+            '<table class="mt" style="margin-top:10px;"><thead><tr>'
+            '<th>Closest candidates</th><th class="n">FoS</th><th class="n">kg</th>'
+            '<th class="n">$</th><th class="n">defl mm</th></tr></thead>'
+            f'<tbody>{rows}</tbody></table>'
+        )
+
+    lightest = safe_df.loc[safe_df["weight"].idxmin()]
+    cheapest = safe_df.loc[safe_df["cost"].idxmin()]
+    strongest = safe_df.loc[safe_df["fos"].idxmax()]
+    efficiency = safe_df["fos"] / safe_df["weight"]
+    efficient = safe_df.loc[efficiency.idxmax()]
+    safe_rate = 100 * n_safe / n_total
+    weight_span = safe_df["weight"].max() / max(safe_df["weight"].min(), 1e-12)
+    cost_span = safe_df["cost"].max() / max(safe_df["cost"].min(), 1e-12)
+
+    rows = ""
+    winners = [
+        ("Lightest safe", lightest),
+        ("Cheapest safe", cheapest),
+        ("Strongest safe", strongest),
+        ("Best FoS/kg", efficient),
+    ]
+    for label, row in winners:
+        rows += (
+            '<tr>'
+            f'<td>{label}</td>'
+            f'<td>{_design_label(row)}</td>'
+            f'<td class="n">{row["fos"]:.2f}</td>'
+            f'<td class="n">{row["weight"]:.4f}</td>'
+            f'<td class="n">${row["cost"]:.2f}</td>'
+            '</tr>'
+        )
+
+    safe_tile = metric_tile("Safe designs", f"{n_safe} / {n_total}",
+                            f"{safe_rate:.0f}% feasible")
+    lightest_tile = metric_tile("Lightest safe",
+                                f'{lightest["weight"]:.4f} kg',
+                                _design_label(lightest))
+    cheapest_tile = metric_tile("Lowest cost",
+                                f'${cheapest["cost"]:.2f}',
+                                _design_label(cheapest))
+    efficiency_tile = metric_tile("Best FoS/kg",
+                                  f'{efficient["fos"]/efficient["weight"]:.1f}',
+                                  _design_label(efficient))
+
+    return (
+        '<div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));'
+        'gap:10px;margin-bottom:14px;">'
+        f'{safe_tile}{lightest_tile}{cheapest_tile}{efficiency_tile}'
+        '</div>'
+        '<div class="callout callout-blue">'
+        f'<strong>Tradeoff read:</strong> safe candidates span {weight_span:.1f}x in weight and '
+        f'{cost_span:.1f}x in cost. {_design_label(efficient)} gives the strongest safety return '
+        f'per kg, while {_design_label(lightest)} is the mass floor and {_design_label(strongest)} '
+        'maximizes margin.'
+        '</div>'
+        '<table class="mt" style="margin-top:10px;"><thead><tr>'
+        '<th>Objective</th><th>Candidate</th><th class="n">FoS</th>'
+        '<th class="n">kg</th><th class="n">$</th></tr></thead>'
+        f'<tbody>{rows}</tbody></table>'
+    )
+
+
 def card(title=None):
     """Open a card container."""
     hd = f'<div class="card-hd">{title}</div>' if title else ""
@@ -614,6 +753,13 @@ with tab_beam:
     with results:
 
         # 1. Recommendation card ──────────────────────────────────────────────
+        tradeoff_feedback = (
+            '<div class="rec-foot">'
+            'No safe design is selected yet. The tradeoff space below shows the '
+            'closest candidates and the main changes that would move the design '
+            'toward feasibility.'
+            '</div>'
+        )
         if safe_df.empty:
             st.markdown(
                 f'<div class="no-safe">'
@@ -696,20 +842,29 @@ with tab_beam:
                                  invert=True)
             st.markdown(bars, unsafe_allow_html=True)
 
-            # Footer note
-            st.markdown(
+            tradeoff_feedback = (
                 f'<div class="rec-foot">'
                 f'Picked as the <strong>{priority}</strong> option from '
                 f'<strong>{n_safe}</strong> / {n_total} safe candidates. '
                 f'FoS = <strong>{rec["fos"]:.2f}</strong> vs target {fos_target:.1f}. '
                 f'Peak deflection <strong>{defl_str}</strong>. '
                 f'Governed by <strong>{controlling.lower()}</strong>.'
-                f'</div>',
-                unsafe_allow_html=True,
+                f'</div>'
             )
 
         # 2. Tradeoff space ───────────────────────────────────────────────────
-        st.markdown(card("Tradeoff space"), unsafe_allow_html=True)
+        st.markdown(
+            f'<div class="card">'
+            f'<div class="card-hd">Tradeoff space</div>'
+            f'{tradeoff_feedback}'
+            f'</div>',
+            unsafe_allow_html=True,
+        )
+        st.markdown(
+            tradeoff_html(df, float(fos_target),
+                          float(deflection_limit) if deflection_limit else None),
+            unsafe_allow_html=True,
+        )
         tc1, tc2 = st.columns(2)
         with tc1:
             st.plotly_chart(
@@ -725,7 +880,6 @@ with tab_beam:
                              "Cost vs FoS", rec),
                 use_container_width=True, key="p_cost",
             )
-        st.markdown(CARD_END, unsafe_allow_html=True)
 
         # 3. All candidates table ─────────────────────────────────────────────
         show_all = st.checkbox("Show all candidates (including unsafe)",

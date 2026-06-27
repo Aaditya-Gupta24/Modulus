@@ -30,7 +30,7 @@ def _load_app_helpers():
         "ACCENT", "ACCENT_HEX", "MAT_CLR", "PLOTLY_COLORS",
         "PLOTLY_LAYOUT",
         "mdot", "section_svg", "bracket_svg", "util_bar",
-        "scatter_plot", "card", "CARD_END",
+        "_design_label", "tradeoff_html", "scatter_plot", "card", "CARD_END",
     }
 
     # Collect top-level assignments and function defs we care about
@@ -221,6 +221,30 @@ class TestCard:
 
     def test_card_opens_div(self, h):
         assert h["card"]("X").startswith('<div class="card">')
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+# tradeoff_html()
+# ═════════════════════════════════════════════════════════════════════════════
+
+class TestTradeoffHtml:
+    def test_safe_space_has_winner_outputs(self, h):
+        html = h["tradeoff_html"](_sample_df(), 2.0)
+        assert "Tradeoff read" in html
+        assert "Safe designs" in html
+        assert "Lightest safe" in html
+        assert "Cheapest safe" in html
+        assert "Best FoS/kg" in html
+        assert "2 / 3" in html
+
+    def test_no_safe_space_has_actionable_closest_candidate(self, h):
+        df = _sample_df()
+        df["safe"] = False
+        html = h["tradeoff_html"](df, 10.0, deflection_limit=0.001)
+        assert "No feasible option yet" in html
+        assert "Closest candidates" in html
+        assert "Increase section depth" in html
+        assert "deflection" in html
 
 
 # ═════════════════════════════════════════════════════════════════════════════
