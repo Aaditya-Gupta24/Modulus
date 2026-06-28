@@ -1,0 +1,41 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mechopt"
+version = "0.2.0"
+description = "Python-based mechanical design optimization tool — screens and recommends beam/bracket designs by factor of safety, weight, and cost, validated against an independent FE solver."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "Aaditya Gupta" }]
+keywords = ["mechanical-engineering", "structural-analysis", "optimization", "streamlit", "finite-element"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Intended Audience :: Science/Research",
+    "Topic :: Scientific/Engineering",
+]
+
+dependencies = [
+    "numpy>=1.26,<3",
+    "pandas>=2.0,<3",
+    "matplotlib>=3.7,<4",
+    "plotly>=5.18",
+    "streamlit>=1.33",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0"]
+
+[project.urls]
+Homepage = "https://github.com/Aaditya-Gupta24/MechOpt"
+Repository = "https://github.com/Aaditya-Gupta24/MechOpt"
+
+[tool.setuptools]
+packages = ["mechopt", "mechopt.components", "validation"]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]

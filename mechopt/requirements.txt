@@ -1,6 +1,8 @@
-numpy
-pandas
-matplotlib
-plotly
-streamlit
-pytest
+# Runtime + test dependencies (also declared in pyproject.toml).
+# Streamlit Community Cloud reads this file when deploying app.py.
+numpy>=1.26,<3
+pandas>=2.0,<3
+matplotlib>=3.7,<4
+plotly>=5.18
+streamlit>=1.33
+pytest>=8.0

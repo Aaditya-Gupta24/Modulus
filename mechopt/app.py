@@ -37,10 +37,9 @@ PLOTLY_COLORS = list(MAT_CLR.values())
 
 
 # ─── CSS ─────────────────────────────────────────────────────────────────────
-st.html("""\
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+st.markdown("""
 <style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
 :root {
   --accent: oklch(0.58 0.16 255);
   --accent-hex: #2e64d1;
@@ -312,7 +311,7 @@ div[data-baseweb="select"] * { font-family: var(--font) !important; }
 /* ── Hide Streamlit heading anchors ─────────────────── */
 .stMarkdown h1, .stMarkdown h2, .stMarkdown h3 { display: none; }
 </style>
-""")
+""", unsafe_allow_html=True)
 
 
 # ─── Helpers ─────────────────────────────────────────────────────────────────
