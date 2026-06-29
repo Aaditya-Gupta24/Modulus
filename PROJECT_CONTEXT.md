@@ -1,190 +1,160 @@
 # MechOpt — Project Context / Chat Handoff
 
 Paste this whole file into a new chat to continue with full context.
-_Last refreshed: 2026-06-15 (status updated from "stubs" to implemented; verified against `git ls-files` and module contents)._
+_Last refreshed: 2026-06-29. Reflects the deployed app, FE validation, buckling module, and docs added this session._
 
-## What the project is
-**MechOpt — Python-Based Mechanical Design Optimization Tool.** A sophomore-level
-mechanical-engineering resume project, fully online. It screens beam and bracket
-designs across material, cross-section, and dimensions, then recommends the best
-design under a chosen priority (lightest safe / cheapest safe / highest FoS /
-best-balanced) and plots the weight–cost–strength tradeoffs.
+---
+
+## 1. What MechOpt is
+**MechOpt — Python-based mechanical design optimization tool.** A sophomore-level
+ME résumé project. It takes a structural load case, computes stress / deflection /
+factor-of-safety for thousands of candidate designs across materials, cross-sections,
+and dimensions, and recommends the best one under a chosen priority — for two
+structures: **beams** and a **wall-mounted bracket**. It plots the weight–cost–strength
+tradeoffs and is validated against an independent finite-element solver.
 
 Owner: Aaditya (GitHub: Aaditya-Gupta24). Stack: Python, numpy, pandas,
-matplotlib/plotly, streamlit, pytest (scipy.optimize planned later).
+matplotlib/plotly, streamlit, pytest.
 
-## Where things live
-- Local git root: `C:\Users\AADITYA GUPTA\OneDrive\Desktop\MechOpt`
-- GitHub remote: https://github.com/Aaditya-Gupta24/MechOpt.git
-- Default branch: `master`, in sync with `origin/master` at the
-  `feat: implement full MechOpt design screening dashboard` commit.
-- The project is nested one level down: the Python package and config live in
-  `C:\Users\AADITYA GUPTA\OneDrive\Desktop\MechOpt\mechopt\` (this is the
-  "project root" where `SPEC.md` and `pytest.ini` live).
-- `LICENSE` (MIT, © 2026 Aaditya Gupta), `index.html`, `PROJECT_CONTEXT.md`, and
-  `LOOPED_PROMPT.md` are at the **git root**.
+## 2. Where things live
+- Git root: `C:\Users\AADITYA GUPTA\OneDrive\Desktop\MechOpt`  (synced via OneDrive)
+- GitHub: https://github.com/Aaditya-Gupta24/MechOpt  (default branch: **master**)
+- **Live app:** https://aaditya-gupta24-mechopt-mechoptapp-v1yts8.streamlit.app/
+- Nested layout: the Python project root is one level down at
+  `MechOpt\mechopt\` (where `app.py`, `SPEC.md`, `pyproject.toml`, `requirements.txt`,
+  `pytest.ini` live). The package itself is at `MechOpt\mechopt\mechopt\`.
+- Streamlit Cloud deploy config: **Main file path = `mechopt/app.py`**, branch `master`.
+  `requirements.txt` sits next to `app.py` (allowed). NOTE: `.streamlit/config.toml`
+  is nested at `mechopt/.streamlit/` but Streamlit Cloud runs from the REPO ROOT, so
+  to make the theme apply on the deployed app, copy it to `MechOpt\.streamlit\config.toml`.
 
-### Known structural notes / open decisions
-- The repo is nested: `MechOpt/mechopt/<everything>`. User chose NOT to flatten.
-- Because of the nesting, the CI workflow at `mechopt/.github/workflows/ci.yml`
-  will NOT run on GitHub — Actions only runs workflows in `.github/` at the
-  REPOSITORY ROOT. To turn CI on, either flatten the repo or move `.github` to
-  the git root. (Still deferred.)
-- OneDrive sync can make `git status` look noisy (cloud-only files show as
-  "deleted"); the committed/pushed tree is the source of truth.
+## 3. Current state — what each module does (all implemented, verified)
+- **`materials.py`** — 6 materials, each with E, σ_y, ρ, cost/kg: aluminum_6061,
+  steel_a36, pla, titanium_ti6al4v, brass_360, abs_plastic.
+- **`sections.py`** — 6 cross-sections → `SectionProps(A, I, c)`: rectangle, circle,
+  i_beam (symmetric), hollow_rectangle (box tube), square_tube, hollow_circle (round
+  tube). Invalid geometry raises ValueError. All single-axis (strong-axis) bending;
+  symmetric so c = h/2. No weak-axis I, no torsion/J, no plastic modulus, no
+  asymmetric (T/L/channel) sections.
+- **`beam.py`** — `max_moment`, `max_stress` (σ=M·c/I), `max_deflection`,
+  `factor_of_safety`. Load cases: cantilever_end (M=P·L, δ=P·L³/3EI) and
+  simply_center (M=P·L/4, δ=P·L³/48EI).
+- **`bracket.py`** — `evaluate_bracket`: plate bending (cantilevered plate, M=P·e,
+  σ=M·c/I, deflection, plate FoS) + bolt group (direct shear V=P/n, moment tension
+  Tᵢ=M·rᵢ/Σr², combined √(τ²+σ²), bolt FoS, default Grade 8.8 allowable 640 MPa).
+  Returns overall FoS = min(plate, bolt), the controlling constraint
+  (plate_bending / bolt / deflection), and a safe flag. (`bolt_group_loads` is a dead
+  stub that raises NotImplementedError — use `evaluate_bracket`.)
+- **`optimizer.py`** — `evaluate_candidates` sweeps material × section × dimension
+  (10–100 mm, step 10) → DataFrame with area, I, weight (A·L·ρ), cost (weight·cost/kg),
+  stress, deflection, fos, safe (fos≥target AND deflection≤limit). `recommend` picks one
+  winner among safe: lightest (min weight) / cheapest (min cost) / safest (max fos) /
+  balanced (min normalized weight+cost — NOTE: balanced score ignores FoS by design).
+- **`buckling.py`** — Euler critical load P_cr=π²EI/(KL)², radius of gyration,
+  slenderness ratio, buckling FoS, with end-condition K. ⚠️ Library-only: working and
+  tested but NOT yet wired into the optimizer sweep or the app UI.
+- **`app.py`** — Streamlit UI, 4 tabs:
+  - *Beam Optimizer*: inputs load P, span L, load case, target FoS, deflection limit,
+    priority (radio), material + section multiselect → recommended design card +
+    candidate table + weight/FoS and cost/FoS tradeoff plots.
+  - *Bracket Analysis*: inputs P, offset e, plate width/thickness, material, target FoS,
+    max deflection, bolt count/diameter/V-spacing/allowable → plate + bolt results,
+    controlling constraint, safe/unsafe.
+  - *Compare Designs*: side-by-side of top safe candidates.
+  - *Assumptions & Limitations*: documentation.
+- **`components/`** — bidirectional Streamlit custom component: SVG section editor;
+  edit a dimension → sent back to Python → live recompute of stress/FoS.
+- **`index.html`** (git root) — standalone, no-Streamlit, pure-JS version of the beam
+  optimizer that runs entirely in the browser. Parity rule: its JS numbers must match
+  the Python oracle.
+- **`validation/`** — independent 1-D finite-element beam solver (`fea_beam.py`,
+  direct stiffness, Hermite cubic elements, shares no code with beam.py) +
+  `run_validation.py` + `VALIDATION.md` + `validation.png`. Results: analytical model
+  matches FE to **< 1×10⁻⁴ %**; Euler-Bernoulli vs Timoshenko shear error **< 0.4 %
+  for slender beams (L/h ≳ 15)**, rising to ~3 % at L/h=5.
+- **`docs/`** — `CASE_STUDY.md` + `pareto.png`: real optimizer run showing an I-beam
+  **64 % lighter** than the best solid section at equal FoS, with the I=∫y²dA reasoning.
 
-## Current status — IMPLEMENTED (no longer stubs)
-The core library is fully implemented and matches the hand-verified oracle numbers
-(spot-checked: Beam Case A and all four section targets are exact). A 4-tab Streamlit
-app and a standalone `index.html` dashboard are both built and committed.
+## 4. Tests & CI
+- **117 collected pytest items** across: test_app_helpers (57), test_sections (13),
+  test_buckling (10, new), test_bracket (9), test_validation (8, new), test_materials
+  (7), test_optimizer (6), test_section_editor (4), test_beam (3).
+- CI workflow at the REPO ROOT `.github/workflows/ci.yml` runs `pytest` on every push
+  (working-directory `mechopt`, Python 3.12).
+- ⚠️ Verification caveat: the cowork sandbox has no PyPI, so this session verified
+  numbers by hand/AST, not by running `pytest`. Confirm locally with
+  `cd mechopt && pytest -q` (should be 117 green) and `pytest --co -q | tail -1`.
 
-What's done:
-- **`sections.py`** — `rectangle`, `circle`, `i_beam`, `hollow_rectangle`,
-  `square_tube`, `hollow_circle` (all implemented, all verified).
-- **`beam.py`** — `max_moment`, `max_stress`, `max_deflection`, `factor_of_safety`.
-- **`optimizer.py`** — `evaluate_candidates` (brute-force sweep, sweeps all six
-  sections) + `recommend` (lightest / cheapest / safest / balanced).
-- **`bracket.py`** — simplified wall-mounted bracket (plate bending + bolt group),
-  `evaluate_bracket`, controlling-constraint logic.
-- **`materials.py`** — all six materials (see below).
-- **`app.py`** — Streamlit UI, 4 tabs: Beam Optimizer, Bracket Analysis,
-  Compare Designs, Assumptions & Limitations.
-- **`index.html`** — standalone, self-contained dark-theme dashboard (no Streamlit,
-  no build step) mirroring the app; served locally via `python -m http.server`.
-- **Tests** — `test_sections.py` (13), `test_beam.py` (3), `test_bracket.py` (9),
-  `test_optimizer.py` (6) ≈ 31 tests. (Re-confirm with `pytest --co -q`.)
+## 5. What was done THIS session
+1. Independent FE validation (solver + report + plot + 8 tests). Fills the résumé "matched
+   FEA within X%" line: < 1×10⁻⁴ % vs FE, < 0.4 % shear error for slender beams.
+2. README rewrite — removed stale "scaffolded", added CI/tests/license badges, live-demo
+   link, validation section, case-study link, buckling, updated layout. Test count 117.
+3. Engineering case study (`docs/CASE_STUDY.md` + pareto.png) — I-beam 64 % lighter.
+4. `pyproject.toml` + pinned `requirements.txt` (numpy/pandas/matplotlib/plotly/streamlit
+   with version constraints; streamlit>=1.33).
+5. Euler buckling module (`buckling.py`) + 10 verified-target tests.
+6. CSS fix in `app.py`: the global `<style>` is now injected via
+   `st.markdown(..., unsafe_allow_html=True)` as one contiguous block with the Google-Fonts
+   `<link>` replaced by a CSS `@import` (fixes CSS-dumped-as-text leak).
+7. Deployed to Streamlit Community Cloud (live URL above).
+8. `LOOPED_PROMPT.md` (git root) — multi-phase oracle-first loop for section coverage +
+   index.html UI parity + context refresh.
 
-What's open: refresh CI so it runs on GitHub; deploy live on Streamlit Community
-Cloud; clean README; then the Week 2–4 roadmap (buckling, deflection limit,
-asymmetric sections, scipy optimization, FEA validation, technical report).
+## 6. Git status / what still needs committing
+- Latest commit on master: `1ca0af0 feat: add buckling module, FE validation, case study,
+  and polish README`.
+- **Uncommitted / not yet pushed** (so the LIVE app + GitHub don't have them yet):
+  the `app.py` CSS fix, the README live-link + test-count edits, and possibly parts of
+  `validation/` and newer test files (OneDrive makes `git status` noisy — verify locally).
+- Action: `git add -A && git commit -m "Fix CSS injection; add validation, buckling, case study, docs" && git push`
+  then hard-refresh the live app (Ctrl+Shift+R) to confirm the CSS renders.
 
-### Tracked files (`git ls-files`)
-```
-LICENSE                              (git root)
-index.html                           (git root — standalone dashboard)
-PROJECT_CONTEXT.md                   (git root — this file)
-LOOPED_PROMPT.md                     (git root — multi-phase looped prompt)
-mechopt/.github/workflows/ci.yml     (won't run — nested, see note above)
-mechopt/.gitignore
-mechopt/README.md
-mechopt/SPEC.md
-mechopt/app.py                       (DONE — 4-tab Streamlit UI)
-mechopt/pytest.ini
-mechopt/requirements.txt
-mechopt/mechopt/__init__.py
-mechopt/mechopt/materials.py         (DONE — 6 materials)
-mechopt/mechopt/sections.py          (DONE — 6 sections)
-mechopt/mechopt/beam.py              (DONE)
-mechopt/mechopt/optimizer.py         (DONE)
-mechopt/mechopt/bracket.py           (DONE)
-mechopt/tests/test_sections.py
-mechopt/tests/test_beam.py
-mechopt/tests/test_bracket.py
-mechopt/tests/test_optimizer.py
-```
+## 7. Verified oracle numbers (hand-derived — never edit to pass a test)
+Beam A — steel, square 30×30, L0.8, P300, cantilever: I=6.75e-8, σ=53.333 MPa, δ=3.7926 mm, FoS=4.6875
+Beam B — alu, circle d30, L1.2, P800, simply: I=3.97608e-8, σ=90.541 MPa, δ=10.4976 mm, FoS=3.0373
+Bracket BR-1 — steel, b40 t8, L100, P500: σ_b=117.1875 MPa, FoS=2.1328
+Bracket BR-2 — alu, b50 t6, L120, P400: σ_b=160.000 MPa, FoS=1.7186
+Sections: hollow_rectangle b40h60w4 A=7.360e-4 I=3.450453e-7 c=.030 · hollow_circle d50di42
+A=5.780530e-4 I=1.540511e-7 c=.025 · square_tube a40w4 A=5.760e-4 I=1.259520e-7 c=.020 ·
+i_beam b50h100tf8tw6 A=1.304e-3 I=1.993419e-6 c=.050
+Buckling — steel square30 L0.8: P_cr(K=1)=208186.9678 N, P_cr(K=2)=52046.7420 N, r=0.008660 m, λ(K=1)=92.376
 
-### The `index.html` dashboard (UI standard)
-Standalone HTML/CSS/JS file — no Streamlit dependency, opens in any browser or via a
-local server. It re-implements the screening physics in JavaScript so it runs
-client-side. **Parity rule:** any number `index.html` displays for a given input must
-match the Python module's result for the same input (the Python module is the oracle;
-the HTML has no pytest). Target UI: four tabs (Beam Optimizer / Bracket Analysis /
-Compare Designs / Assumptions); on the Beam tab — Loading inputs, Objective priority
-buttons (Balanced/Lightest/Cheapest/Safest), Materials toggles, six Cross-section
-toggles (Rectangle, Circle, I-Beam, Sq. Tube, Box Tube, Round Tube), a Recommended
-card (FoS / max stress / deflection / weight / cost tiles + to-scale SVG + governing
-limit + rationale), two tradeoff scatter plots (Weight vs FoS, Cost vs FoS), and a
-sortable candidates table. UI-label ↔ code-name map: Sq. Tube=`square_tube`,
-Box Tube=`hollow_rectangle`, Round Tube=`hollow_circle`, I-Beam=`i_beam`.
+## 8. Engineering equations
+Sections: rect A=bh I=bh³/12 c=h/2 · circle A=πd²/4 I=πd⁴/64 c=d/2 ·
+hollow_rect bi=b−2w hi=h−2w A=bh−bihi I=(bh³−bihi³)/12 c=h/2 ·
+hollow_circle A=π(d²−di²)/4 I=π(d⁴−di⁴)/64 c=d/2 ·
+square_tube ai=a−2w A=a²−ai² I=(a⁴−ai⁴)/12 c=a/2 ·
+i_beam A=bh−(b−tw)(h−2tf) I=(bh³−(b−tw)(h−2tf)³)/12 c=h/2
+Beam: cantilever_end M=PL δ=PL³/3EI · simply_center M=PL/4 δ=PL³/48EI · σ=Mc/I · FoS=σ_y/σ
+weight=A·L·ρ · cost=weight·cost/kg
+Bracket: M=P·e, σ_b=Mc/I, V=P/n, T=M·r_max/Σr², σ_vm=√(τ²+σ²), FoS=min(plate,bolt)
+Buckling: P_cr=π²EI/(KL)², r=√(I/A), λ=KL/r
 
-## Core methodology: "loop engineering"
-The **test suite in `tests/` is the correctness oracle.** Tests hardcode
-hand-verified numbers DERIVED FROM THE EQUATIONS (not copied from code output).
-The loop's job: keep `pytest` green without ever editing a verified numeric target.
-A loop that can edit its own answer key is not an oracle. **Rule: fix the code,
-never the test target.** See `LOOPED_PROMPT.md` for the current multi-phase loop.
+## 9. Methodology — "loop engineering"
+Tests in `tests/` are the correctness oracle: hand-verified numbers DERIVED from the
+equations. The rule is absolute: **fix the code, never edit a verified test target**; any
+new target must be re-derived from the equation and printed for spot-check. The reusable
+multi-phase loop is in `LOOPED_PROMPT.md`.
 
-Setup to run the loop (in a terminal):
-```
-cd "C:\Users\AADITYA GUPTA\OneDrive\Desktop\MechOpt\mechopt"
-pip install -r requirements.txt
-pytest -q          # confirm green baseline
-claude
-```
+## 10. Open items / roadmap (priority order)
+1. **Commit + push** the CSS fix and README edits; confirm CSS renders on the live app.
+2. **Screenshots + a GIF** in the README (optimizer + live section editor) — biggest
+   remaining "first impression" win. Reviewers won't clone.
+3. **Wire buckling into the UI** — surface a buckling check / second pass-fail in the app
+   and/or optimizer (currently library-only).
+4. **Asymmetric sections** (T, L-angle, C-channel) — needs neutral-axis ȳ + parallel-axis
+   theorem (c ≠ h/2). The single most impressive depth add; user previously deferred.
+5. **index.html parity** — ensure all 6 section toggles render and JS numbers match Python
+   (see LOOPED_PROMPT Phase 2).
+6. Optional polish: cleaner Streamlit subdomain; note the "balanced ignores FoS" choice in
+   README; copy `.streamlit/config.toml` to repo root so the theme deploys.
+7. Later depth: deflection-limit already supported; add Pareto-front view, scipy continuous
+   optimization, and a technical-report PDF (Week 3–4 of the original roadmap).
 
-## Engineering equations (the physics)
-Sections (return area A, second moment I, outer-fibre distance c):
-- rectangle: A=b·h, I=b·h³/12, c=h/2
-- circle: A=π·d²/4, I=π·d⁴/64, c=d/2
-- hollow_rectangle (outer b,h; wall w): bi=b−2w, hi=h−2w; A=b·h−bi·hi; I=(b·h³−bi·hi³)/12; c=h/2
-- hollow_circle (outer d, inner di): A=π(d²−di²)/4; I=π(d⁴−di⁴)/64; c=d/2
-- square_tube (outer a, wall w): ai=a−2w; A=a²−ai²; I=(a·a³−ai·ai³)/12; c=a/2
-- i_beam (b,h,tf,tw): A=b·h−(b−tw)(h−2tf); I=(b·h³−(b−tw)(h−2tf)³)/12; c=h/2
-
-Beam (load cases):
-- cantilever_end: M=P·L, δ=P·L³/(3·E·I)
-- simply_center:  M=P·L/4, δ=P·L³/(48·E·I)
-- σ = M·c/I ; FoS = σ_y/σ ; weight=A·L·ρ ; cost=weight·cost_per_kg
-
-Bracket (L-bracket = cantilever arm + shear at the root):
-- M=P·L, σ_b=M·c/I, τ_avg=P/A, σ_vm=√(σ_b²+3·τ_avg²), δ=P·L³/(3·E·I), FoS=σ_y/σ_vm
-- (σ_vm here = conservative screen; peak bending & avg shear don't occur at the same point — documented as a limitation.)
-
-Planned later (month-2 depth): Euler buckling P_cr=π²·E·I/(K·L)²; deflection-limit
-constraint (e.g. δ ≤ L/360); asymmetric sections (T, L/angle) needing neutral-axis
-location ȳ=ΣAᵢȳᵢ/ΣAᵢ + parallel-axis theorem (c ≠ h/2).
-
-## Materials (SI: E[Pa], σ_y[Pa], ρ[kg/m³], cost[USD/kg]) — IMPLEMENTED
-All six are in `materials.py` (cost is relative/illustrative, document in README):
-- aluminum_6061 (Aluminum 6061-T6): E=69e9,  σ_y=275e6, ρ=2700, cost=3.5
-- steel_a36 (Steel A36):            E=200e9, σ_y=250e6, ρ=7850, cost=1.0
-- pla (PLA 3D print):               E=3.5e9, σ_y=50e6,  ρ=1240, cost=25.0
-- titanium_ti6al4v (Ti-6Al-4V):     E=114e9, σ_y=880e6, ρ=4430, cost=35.0
-- brass_360 (Brass C360):           E=100e9, σ_y=125e6, ρ=8500, cost=6.0
-- abs_plastic (ABS 3D print):       E=2.3e9, σ_y=40e6,  ρ=1050, cost=20.0
-
-## HAND-VERIFIED test targets (the oracle numbers — all independently computed)
-Beam Case A — steel_a36, square 30×30 mm, L=0.8 m, P=300 N, cantilever_end:
-  I=6.75e-8 m⁴, σ=53.333 MPa, δ=3.7926 mm, FoS=4.6875
-Beam Case B — aluminum_6061, circle d=30 mm, L=1.2 m, P=800 N, simply_center:
-  I=3.97608e-8 m⁴, σ=90.541 MPa, δ=10.4976 mm, FoS=3.0373
-Bracket BR-1 — steel_a36, b=40 t=8 mm, L=100 mm, P=500 N:
-  I=1.70667e-9 m⁴, σ_b=117.1875 MPa, τ=1.5625 MPa, σ_vm=117.219 MPa, δ=0.4883 mm, FoS=2.1328
-Bracket BR-2 — aluminum_6061, b=50 t=6 mm, L=120 mm, P=400 N:
-  I=9.000e-10 m⁴, σ_b=160.000 MPa, τ=1.3333 MPa, σ_vm=160.017 MPa, δ=3.7101 mm, FoS=1.7186
-Section props:
-  hollow_rectangle b40 h60 w4: A=7.36000e-4, I=3.450453e-7, c=0.030
-  hollow_circle    d50 di42:   A=5.780530e-4, I=1.540511e-7, c=0.025
-  square_tube      a40 w4:     A=5.760000e-4, I=1.259520e-7, c=0.020
-  i_beam b50 h100 tf8 tw6:     A=1.304000e-3, I=1.993419e-6, c=0.050
-
-## Reusable loop prompt
-The active multi-phase loop lives in **`LOOPED_PROMPT.md`** (git root): Phase 1 locks
-down section-type oracle coverage, Phase 2 brings `index.html` to the reference UI
-standard with all six section toggles + JS↔Python parity, Phase 3 keeps this context
-file current. Shared RULES: never weaken/edit a verified target; derive any new target
-from the equation and print it; fix the code, not the tests; `pytest -q` after every
-change.
-
-## Month-long roadmap (depth over breadth; validation is the differentiator)
-- Week 1 — Foundation: core green ✅, app + index.html built ✅. Remaining: CI passing,
-  app deployed live on Streamlit Community Cloud, clean README.
-- Week 2 — Deeper mechanics: Euler buckling, deflection-limit constraint, asymmetric
-  T/L sections (neutral-axis + parallel-axis). Verified targets each.
-- Week 3 — Real optimization + validation: scipy.optimize continuous design, Pareto
-  fronts, and VALIDATE analytical model against a simple FEA / independent method
-  (the single most impressive thing — "matched FEA within X%").
-- Week 4 — Communication: technical-report PDF built around one design case study,
-  sensitivity/parametric analysis, demo GIF, notebook walkthrough, limitations section.
-
-Interview talking points to earn: "validated against FEA within X%"; "optimizer
-picks tubes for light designs because material far from the neutral axis carries
-bending — here's the Pareto front"; "it's a screening tool — no fatigue, buckling
-interaction, or stress concentrations."
-
-## Immediate next step
-Run `LOOPED_PROMPT.md` Phase 1 → 2 → 3 from `MechOpt\mechopt`. Before trusting the
-suite, hand-check one target (e.g. Beam Case A: σ=M·c/I with M=300×0.8, I=0.03⁴/12).
-After the loop, tackle Week-1 leftovers: CI at repo root + live Streamlit deploy + README.
-```
-```
+## 11. Résumé bullet (fill the live link)
+> **MechOpt — Mechanical Design Optimization Tool (Python, Streamlit).** Built a design-
+> screening app that sweeps materials, cross-sections, and dimensions to recommend optimal
+> beams/brackets by factor of safety, weight, and cost; validated the analytical model
+> against an independent finite-element solver (< 0.01 %) and quantified Euler-Bernoulli vs.
+> Timoshenko shear error; 117 automated tests with CI; deployed live on Streamlit Cloud.

@@ -12,7 +12,7 @@ weight–cost–strength tradeoffs.** It is a first-pass engineering decision to
 backed by 117 automated tests and validated against an independent finite-element
 solver.
 
-🔗 **Live demo:** _(deploy to Streamlit Community Cloud and paste the URL here)_
+🔗 **[Live demo](https://aaditya-gupta24-mechopt-mechoptapp-v1yts8.streamlit.app/)**
 &nbsp;·&nbsp; 📄 **[Validation report](validation/VALIDATION.md)**
 &nbsp;·&nbsp; 📐 **[Case study](docs/CASE_STUDY.md)**
 &nbsp;·&nbsp; 🧮 **[Engineering spec](SPEC.md)**
