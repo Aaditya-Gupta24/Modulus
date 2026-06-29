@@ -9,7 +9,7 @@ import numpy as np
 import pandas as pd
 
 from .materials import MATERIALS
-from . import sections, beam, failure_modes
+from . import sections, beam, failure_modes, stock
 
 
 def _section_config(sec_type, d, d_mm):
@@ -65,7 +65,8 @@ def evaluate_candidates(load: float, length: float, load_case: str,
                         fos_target: float, *,
                         material_keys: list = None,
                         section_types: list = None,
-                        deflection_limit: float = None) -> pd.DataFrame:
+                        deflection_limit: float = None,
+                        stock_mode: bool = False) -> pd.DataFrame:
     """Sweep the design space and return ONE row per candidate design.
 
     Required columns (exact names):
@@ -89,7 +90,7 @@ def evaluate_candidates(load: float, length: float, load_case: str,
     K = 2.0 if load_case == "cantilever_end" else 1.0
 
     rows = []
-    dims_mm = np.arange(10, 110, 10)  # 10 to 100 mm in steps of 10
+    dims_mm = stock.stock_dims_mm() if stock_mode else np.arange(10, 110, 10)
 
     for mat_key in material_keys:
         mat = MATERIALS[mat_key]

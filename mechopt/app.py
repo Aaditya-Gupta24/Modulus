@@ -19,6 +19,7 @@ from mechopt.design_review import generate_review
 from mechopt.failure_modes import Status
 from mechopt.materials import MATERIALS
 from mechopt.optimizer import evaluate_candidates, recommend
+from mechopt.stock import nearest_buyable
 from mechopt.sections import (
     circle, hollow_circle, hollow_rectangle, i_beam, rectangle, square_tube,
 )
@@ -731,6 +732,20 @@ with tab_beam:
             key="b_secs", label_visibility="collapsed",
         )
 
+        st.markdown('<div class="rh">Design mode</div>',
+                    unsafe_allow_html=True)
+        design_mode = st.radio(
+            "Design mode",
+            ["conceptual", "stock"],
+            format_func=lambda x: {
+                "conceptual": "Conceptual sweep",
+                "stock": "Standard stock only",
+            }[x],
+            horizontal=True, key="b_design_mode",
+            label_visibility="collapsed",
+        )
+        use_stock = design_mode == "stock"
+
     if not selected_mats:
         selected_mats = list(MATERIALS.keys())
     if not selected_secs:
@@ -743,6 +758,7 @@ with tab_beam:
             material_keys=list(selected_mats),
             section_types=list(selected_secs),
             deflection_limit=float(deflection_limit) if deflection_limit else None,
+            stock_mode=use_stock,
         )
     except Exception as e:
         with results:
@@ -933,6 +949,35 @@ with tab_beam:
                 f'Governed by <strong>{controlling.lower()}</strong>.'
                 f'</div>'
             )
+
+        # ── Stock snap comparison ────────────────────────────────────────
+        if not use_stock and rec is not None:
+            try:
+                snap = nearest_buyable(
+                    rec, float(load), float(length), str(load_case),
+                    float(fos_target),
+                    deflection_limit=float(deflection_limit) if deflection_limit else None,
+                )
+                mass_sign = "+" if snap.mass_penalty_pct >= 0 else ""
+                stiff_sign = "+" if snap.stiffness_change_pct >= 0 else ""
+                snap_badge = "badge-safe" if snap.snapped["safe"] else "badge-unsafe"
+                st.markdown(
+                    f'<div class="card" style="border-left:3px solid {ACCENT_HEX};margin-top:0.5rem;">'
+                    f'<div class="rec-label">Nearest buyable stock</div>'
+                    f'<div style="font-size:0.95rem;margin:0.25rem 0;">'
+                    f'<b>{snap.snapped_dims_mm.get("d_mm", "?"):.0f} mm</b> '
+                    f'(was {snap.original.get("dims", "?")})</div>'
+                    f'<div style="display:flex;gap:1rem;font-size:0.85rem;">'
+                    f'<span>Mass {mass_sign}{snap.mass_penalty_pct:.1f}%</span>'
+                    f'<span>Stiffness {stiff_sign}{snap.stiffness_change_pct:.1f}%</span>'
+                    f'<span>FoS {snap.snapped["fos"]:.2f} (was {snap.original["fos"]:.2f})</span>'
+                    f'<span class="{snap_badge}">'
+                    f'{"SAFE" if snap.snapped["safe"] else "UNSAFE"}</span>'
+                    f'</div></div>',
+                    unsafe_allow_html=True,
+                )
+            except Exception:
+                pass
 
         # 2. Ranked top-5 table ──────────────────────────────────────────────
         if not safe_df.empty:
