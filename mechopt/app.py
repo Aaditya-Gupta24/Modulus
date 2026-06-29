@@ -15,6 +15,7 @@ from mechopt.beam import max_deflection, max_moment, max_stress, factor_of_safet
 from mechopt.bracket import evaluate_bracket
 from mechopt.components.section_editor import section_editor
 from mechopt.decision import rank_candidates, pareto_front, knee_point, classify_infeasible, explain_winner
+from mechopt.design_review import generate_review
 from mechopt.failure_modes import Status
 from mechopt.materials import MATERIALS
 from mechopt.optimizer import evaluate_candidates, recommend
@@ -968,6 +969,110 @@ with tab_beam:
                 )
             top5_html += '</tbody></table>' + CARD_END
             st.markdown(top5_html, unsafe_allow_html=True)
+
+        # Design Review card ─────────────────────────────────────────────────
+        if rec is not None:
+            review = generate_review(
+                winner=rec, df=df, priority=priority,
+                load=float(load), length=float(length),
+                load_case=str(load_case), fos_target=float(fos_target),
+                deflection_limit=float(deflection_limit) if deflection_limit else None,
+            )
+
+            # Header area
+            dr_html = (
+                '<div class="card">'
+                '<div class="card-hd">Design Review</div>'
+                f'<div style="font-size:1.2rem;font-weight:700;color:var(--text);margin-bottom:4px;">'
+                f'{review.recommended}'
+                f'</div>'
+                f'<div style="font-size:0.84rem;color:var(--muted);line-height:1.6;margin-bottom:16px;">'
+                f'{review.why_it_won}'
+                f'</div>'
+                '</div>'
+            )
+            st.markdown(dr_html, unsafe_allow_html=True)
+
+            # Key info in 3 columns
+            ki1, ki2, ki3 = st.columns(3)
+            with ki1:
+                margin_pct = f"{review.controlling_margin * 100:.1f}%"
+                st.markdown(
+                    f'<div style="background:var(--surface);border:1px solid var(--border);'
+                    f'border-radius:var(--radius-sm);padding:14px 16px;">'
+                    f'<div style="font-size:0.67rem;color:var(--muted);text-transform:uppercase;'
+                    f'letter-spacing:0.5px;font-weight:600;">Controlling Constraint</div>'
+                    f'<div style="font-size:1.05rem;font-weight:700;color:var(--text);margin-top:4px;">'
+                    f'{review.controlling_constraint.replace("_", " ").title()}</div>'
+                    f'<div style="font-size:0.78rem;color:var(--muted);margin-top:2px;">'
+                    f'Margin: {margin_pct}</div>'
+                    f'</div>',
+                    unsafe_allow_html=True,
+                )
+            with ki2:
+                st.markdown(
+                    f'<div style="background:var(--surface);border:1px solid var(--border);'
+                    f'border-radius:var(--radius-sm);padding:14px 16px;">'
+                    f'<div style="font-size:0.67rem;color:var(--muted);text-transform:uppercase;'
+                    f'letter-spacing:0.5px;font-weight:600;">Most Important Sensitivity</div>'
+                    f'<div style="font-size:1.05rem;font-weight:700;color:var(--text);margin-top:4px;">'
+                    f'{review.most_important_sensitivity.replace("_", " ").title()}</div>'
+                    f'</div>',
+                    unsafe_allow_html=True,
+                )
+            with ki3:
+                alt_text = review.nearest_alternative if review.nearest_alternative else "None available"
+                st.markdown(
+                    f'<div style="background:var(--surface);border:1px solid var(--border);'
+                    f'border-radius:var(--radius-sm);padding:14px 16px;">'
+                    f'<div style="font-size:0.67rem;color:var(--muted);text-transform:uppercase;'
+                    f'letter-spacing:0.5px;font-weight:600;">Nearest Alternative</div>'
+                    f'<div style="font-size:1.05rem;font-weight:700;color:var(--text);margin-top:4px;">'
+                    f'{alt_text}</div>'
+                    f'</div>',
+                    unsafe_allow_html=True,
+                )
+
+            # Sensitivity table
+            if review.sensitivities:
+                sens_html = '<table class="mt"><thead><tr>'
+                sens_html += '<th>Parameter</th><th class="n">+5% bumps FoS by</th><th class="n">+5% bumps &delta; by</th>'
+                sens_html += '</tr></thead><tbody>'
+                for s in review.sensitivities:
+                    is_important = s.parameter == review.most_important_sensitivity
+                    row_style = ' style="font-weight:700;background:rgba(46,100,209,0.06);"' if is_important else ''
+                    td_pre = '<td style="font-weight:700;">' if is_important else '<td>'
+                    td_n_pre = '<td class="n" style="font-weight:700;">' if is_important else '<td class="n">'
+                    sens_html += (
+                        f'<tr{row_style}>'
+                        f'{td_pre}{s.parameter.replace("_", " ").title()}</td>'
+                        f'{td_n_pre}{s.fos_change:+.3f}</td>'
+                        f'{td_n_pre}{s.deflection_change*1e3:+.3f} mm</td>'
+                        f'</tr>'
+                    )
+                sens_html += '</tbody></table>'
+                st.markdown(sens_html, unsafe_allow_html=True)
+
+            # Unmodeled risks
+            if review.unmodeled_risks:
+                risks_text = ', '.join(
+                    r.replace('_', ' ').title() for r in review.unmodeled_risks
+                )
+                st.markdown(
+                    f'<div class="callout callout-amber">'
+                    f'<strong>Unmodeled risks:</strong> {risks_text}'
+                    f' — these failure modes are not checked and should be verified separately.'
+                    f'</div>',
+                    unsafe_allow_html=True,
+                )
+
+            # Recommended next step
+            st.markdown(
+                f'<div class="callout callout-blue">'
+                f'<strong>Recommended next step:</strong> {review.recommended_next_step}'
+                f'</div>',
+                unsafe_allow_html=True,
+            )
 
         # 3. Why-not summary (why rejected designs failed) ───────────────────
         if n_total > n_safe:
