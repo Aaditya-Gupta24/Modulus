@@ -45,6 +45,26 @@ MAT_CLR = {
 
 PLOTLY_COLORS = list(MAT_CLR.values())
 
+# ─── Check / constraint label map ────────────────────────────────────────────
+_CHECK_LABELS = {
+    "bending_stress":  "Bending Stress",
+    "deflection":      "Deflection",
+    "yield_fos":       "Yield FoS",
+    "euler_buckling":  "Euler Buckling",
+    "shear":           "Shear",
+    "torsion":         "Torsion",
+    "local_buckling":  "Local Buckling",
+    "plate_bending":   "Plate Bending",
+    "bolt":            "Bolt",
+    "bearing":         "Bearing",
+    "tearout":         "Tearout",
+}
+
+
+def _check_label(raw: str) -> str:
+    """Return a human-friendly label for a check/constraint key."""
+    return _CHECK_LABELS.get(raw, raw.replace("_", " ").title())
+
 
 # ─── CSS ─────────────────────────────────────────────────────────────────────
 st.markdown("""
@@ -74,6 +94,13 @@ html, body, .stApp {
   color: var(--text) !important;
 }
 * { font-family: var(--font) !important; }
+/* Restore icon fonts clobbered by the universal rule above */
+span[data-testid="stIconMaterial"],
+[class*="material-symbols"],
+.material-icons {
+  font-family: 'Material Symbols Rounded','Material Symbols Outlined',
+               'Material Icons' !important;
+}
 #MainMenu, footer, header .stDeployButton { display: none !important; }
 header[data-testid="stHeader"] { display: none !important; }
 .block-container {
@@ -873,7 +900,7 @@ with tab_beam:
             _mat = MATERIALS[_mat_key]
 
             sc = rec["safety_case"]
-            controlling = sc.controlling_check.replace("_", " ").title()
+            controlling = _check_label(sc.controlling_check)
 
             badge_cls = "badge-safe" if rec["safe"] else "badge-unsafe"
             badge_txt = "SAFE" if rec["safe"] else "UNSAFE"
@@ -957,14 +984,15 @@ with tab_beam:
                 td_pre = '<td style="font-weight:700;">' if is_ctrl else '<td>'
                 td_n_pre = '<td class="n" style="font-weight:700;">' if is_ctrl else '<td class="n">'
 
-                check_label = chk.name.replace("_", " ").title()
+                check_label = _check_label(chk.name)
 
                 if chk.status is Status.NOT_MODELED:
                     val_str = "\u2014"
                     lim_str = "\u2014"
                     margin_str = "\u2014"
-                    dot = "\u26a0"
-                    status_text = "NOT MODELED"
+                    dot = "\u2014"
+                    na_reason = chk.notes if chk.notes else "N/A"
+                    status_text = f"N/A — {na_reason}"
                     status_color = "#8b90a0"
                 else:
                     # Format value and limit with appropriate units
@@ -1020,7 +1048,7 @@ with tab_beam:
                 ov_color, ov_text = "#f87171", "FAIL"
                 if sc.failure_reasons:
                     ov_text += " \u2014 " + ", ".join(
-                        r.replace("_", " ").title() for r in sc.failure_reasons)
+                        _check_label(r) for r in sc.failure_reasons)
             else:
                 ov_color, ov_text = "#fbbf24", "WARNING"
 
@@ -1086,7 +1114,7 @@ with tab_beam:
                 why_text = explain_winner(trow)
                 if len(why_text) > 80:
                     why_text = why_text[:77] + "..."
-                ctrl_label = trow["safety_case"].controlling_check.replace("_", " ").title()
+                ctrl_label = _check_label(trow["safety_case"].controlling_check)
                 sec_label = trow["section"].replace("_", " ").title()
                 top5_html += (
                     f'<tr class="row-safe">'
@@ -1138,7 +1166,7 @@ with tab_beam:
                     f'<div style="font-size:0.67rem;color:var(--muted);text-transform:uppercase;'
                     f'letter-spacing:0.5px;font-weight:600;">Controlling Constraint</div>'
                     f'<div style="font-size:1.05rem;font-weight:700;color:var(--text);margin-top:4px;">'
-                    f'{review.controlling_constraint.replace("_", " ").title()}</div>'
+                    f'{_check_label(review.controlling_constraint)}</div>'
                     f'<div style="font-size:0.78rem;color:var(--muted);margin-top:2px;">'
                     f'Margin: {margin_pct}</div>'
                     f'</div>',
@@ -1151,7 +1179,7 @@ with tab_beam:
                     f'<div style="font-size:0.67rem;color:var(--muted);text-transform:uppercase;'
                     f'letter-spacing:0.5px;font-weight:600;">Most Important Sensitivity</div>'
                     f'<div style="font-size:1.05rem;font-weight:700;color:var(--text);margin-top:4px;">'
-                    f'{review.most_important_sensitivity.replace("_", " ").title()}</div>'
+                    f'{review.most_important_sensitivity.replace("_", " ").title() if review.most_important_sensitivity != "N/A" else "N/A"}</div>'
                     f'</div>',
                     unsafe_allow_html=True,
                 )
@@ -1191,7 +1219,7 @@ with tab_beam:
             # Unmodeled risks
             if review.unmodeled_risks:
                 risks_text = ', '.join(
-                    r.replace('_', ' ').title() for r in review.unmodeled_risks
+                    _check_label(r) for r in review.unmodeled_risks
                 )
                 st.markdown(
                     f'<div class="callout callout-amber">'
@@ -1554,7 +1582,7 @@ with tab_beam:
                 f'<div style="margin-top:8px;">'
             )
             for reason, count in reason_counts.most_common():
-                label = reason.replace("_", " ").title()
+                label = _check_label(reason)
                 why_html += (
                     f'<div style="margin:3px 0;font-size:0.82rem;">'
                     f'<span style="color:var(--red);margin-right:6px;">&#x25cf;</span>'
@@ -1701,7 +1729,7 @@ with tab_beam:
                 f'<td class="n">{row["weight"]:.4f}</td>'
                 f'<td class="n">{row["cost"]:.2f}</td>'
                 f'<td style="font-size:0.75rem;color:var(--muted);">'
-                f'{row["safety_case"].controlling_check.replace("_", " ").title()}</td>'
+                f'{_check_label(row["safety_case"].controlling_check)}</td>'
                 f'<td><span style="display:inline-block;width:8px;height:8px;'
                 f'border-radius:50%;background:{dot_c};"></span></td></tr>')
         thtml += '</tbody></table>'
@@ -1869,7 +1897,7 @@ with tab_bracket:
     )
 
     with br_results:
-        ctrl = br_result.controlling.replace("_", " ").title()
+        ctrl = _check_label(br_result.controlling)
         b_cls = "badge-safe" if br_result.safe else "badge-unsafe"
         b_txt = "SAFE" if br_result.safe else "UNSAFE"
         st.markdown(
@@ -1969,7 +1997,7 @@ with tab_bracket:
             gc1.metric("Deflection reduction", f"{defl_red:.1f}%")
             gc2.metric("Added mass", f"{br_result.gusset.mass * 1000:.1f} g")
             gc3.metric("Control shifts to",
-                       br_result.controlling.replace("_", " ").title())
+                       _check_label(br_result.controlling))
             st.markdown(CARD_END, unsafe_allow_html=True)
 
         # Warnings
@@ -2099,7 +2127,7 @@ with tab_compare:
     bs2.metric("Plate Stress", f"{br_result.plate_stress / 1e6:.1f} MPa")
     bs3.metric("Bolt FoS", f"{br_result.bolt.bolt_fos:.2f}")
     bs4.metric("Bearing FoS", f"{br_result.bolt.bearing_fos:.1f}")
-    bs5.metric("Controls", br_result.controlling.replace("_", " ").title())
+    bs5.metric("Controls", _check_label(br_result.controlling))
     bc2 = "badge-safe" if br_result.safe else "badge-unsafe"
     bt2 = "SAFE" if br_result.safe else "UNSAFE"
     bs6.markdown(f'<div style="margin-top:8px;">'
