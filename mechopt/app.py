@@ -751,10 +751,12 @@ with tab_beam:
 
         load_case = st.selectbox(
             "Load case",
-            ["cantilever_end", "simply_center"],
+            ["cantilever_end", "simply_center", "cantilever_udl", "simply_udl"],
             format_func=lambda x: {
-                "cantilever_end": "Cantilever · end load",
-                "simply_center": "Simply supported · center",
+                "cantilever_end": "Cantilever — Point Load",
+                "simply_center":  "Simply Supported — Point Load",
+                "cantilever_udl": "Cantilever — UDL",
+                "simply_udl":     "Simply Supported — UDL",
             }[x],
             key="b_lc",
         )
@@ -1213,7 +1215,7 @@ with tab_beam:
                 "load_case": str(load_case), "fos_target": float(fos_target),
                 "deflection_limit": float(deflection_limit) if deflection_limit else None,
             }
-            ex1, ex2, ex3 = st.columns(3)
+            ex1, ex2, ex3, ex4 = st.columns(4)
             with ex1:
                 st.download_button(
                     "Download CSV",
@@ -1234,6 +1236,13 @@ with tab_beam:
                     data=export_report_bytes(df, review, _problem, priority, "text"),
                     file_name="mechopt_report.txt",
                     mime="text/plain", key="dl_txt",
+                )
+            with ex4:
+                st.download_button(
+                    "Download PDF",
+                    data=export_report_bytes(df, review, _problem, priority, "pdf"),
+                    file_name="mechopt_report.pdf",
+                    mime="application/pdf", key="dl_pdf",
                 )
 
         # ── Monte Carlo Uncertainty ──────────────────────────────────────────

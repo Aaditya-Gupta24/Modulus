@@ -165,7 +165,15 @@ def test_export_bytes_text_returns_bytes(analysis):
     assert b"MechOpt" in data
 
 
+def test_export_bytes_pdf_returns_bytes(analysis):
+    df, review, problem, priority = analysis
+    data = export_report_bytes(df, review, problem, priority, "pdf")
+    assert isinstance(data, bytes)
+    assert len(data) > 1000
+    assert data[:5] == b"%PDF-"
+
+
 def test_export_bytes_invalid_format(analysis):
     df, review, problem, priority = analysis
     with pytest.raises(ValueError):
-        export_report_bytes(df, review, problem, priority, "pdf")
+        export_report_bytes(df, review, problem, priority, "xlsx")

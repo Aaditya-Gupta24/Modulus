@@ -5,7 +5,7 @@ shear / torsion checks, then rolls up results into a SafetyCase with an
 overall pass / fail / warning verdict.
 """
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import List
 from enum import Enum
 
@@ -48,7 +48,8 @@ def _status_from_margin(margin: float) -> Status:
 
 def evaluate_candidate(material, section_fn, dims, load, length, load_case,
                        fos_target=1.5, deflection_limit=None,
-                       compression_load=None, K=1.0) -> SafetyCase:
+                       compression_load=None, K=1.0,
+                       section_type=None, dims_dict=None) -> SafetyCase:
     """Evaluate a beam candidate against all failure-mode checks.
 
     Parameters
@@ -64,7 +65,7 @@ def evaluate_candidate(material, section_fn, dims, load, length, load_case,
     length : float
         Beam span [m].
     load_case : str
-        "cantilever_end" or "simply_center".
+        "cantilever_end", "cantilever_udl", "simply_center", or "simply_udl".
     fos_target : float
         Required factor of safety against yield (default 1.5).
     deflection_limit : float or None
@@ -73,6 +74,12 @@ def evaluate_candidate(material, section_fn, dims, load, length, load_case,
         Axial compression load [N] for buckling check, or None to skip.
     K : float
         Effective-length factor for buckling (default 1.0).
+    section_type : str or None
+        Section type name (e.g. "rectangle", "square_tube").  Required for
+        the local-buckling check; pass None to skip that check.
+    dims_dict : dict or None
+        Dimension dictionary for local-buckling slenderness calculation.
+        Required when section_type is a thin-walled type; None to skip.
 
     Returns
     -------
@@ -148,6 +155,43 @@ def evaluate_candidate(material, section_fn, dims, load, length, load_case,
         status=Status.NOT_MODELED,
         notes="Torsion check not yet implemented",
     ))
+
+    # -- local_buckling (thin-walled sections only) --
+    if section_type is not None:
+        ok = beam.local_buckling_ok(
+            section_type,
+            dims_dict if dims_dict is not None else {},
+            material.E,
+            material.sigma_y,
+        )
+        if ok is None:
+            # Solid section — no local buckling risk
+            checks.append(CheckResult(
+                name="local_buckling",
+                actual=0.0,
+                allowable=0.0,
+                margin=0.0,
+                status=Status.NOT_MODELED,
+                notes="N/A (solid section)",
+            ))
+        else:
+            lam = beam.local_buckling_slenderness(section_type,
+                                                   dims_dict if dims_dict is not None else {})
+            limit = beam.local_buckling_limit(section_type, material.E, material.sigma_y)
+            if ok:
+                margin_lb = (limit - lam) / limit
+                lb_status = _status_from_margin(margin_lb)
+            else:
+                margin_lb = (limit - lam) / limit  # negative when lam > limit
+                lb_status = Status.FAIL
+            checks.append(CheckResult(
+                name="local_buckling",
+                actual=lam,
+                allowable=limit,
+                margin=margin_lb,
+                status=lb_status,
+                notes=f"slenderness={lam:.2f}, limit={limit:.2f}",
+            ))
 
     # -- roll up --
     modeled = [c for c in checks if c.status is not Status.NOT_MODELED]
