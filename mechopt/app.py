@@ -19,6 +19,7 @@ from mechopt.design_review import generate_review
 from mechopt.failure_modes import Status
 from mechopt.materials import MATERIALS
 from mechopt.optimizer import evaluate_candidates, recommend
+from mechopt.report import export_report_bytes
 from mechopt.stock import nearest_buyable
 from mechopt.sections import (
     circle, hollow_circle, hollow_rectangle, i_beam, rectangle, square_tube,
@@ -1118,6 +1119,35 @@ with tab_beam:
                 f'</div>',
                 unsafe_allow_html=True,
             )
+
+            # ── Export buttons ───────────────────────────────────────────
+            _problem = {
+                "load": float(load), "length": float(length),
+                "load_case": str(load_case), "fos_target": float(fos_target),
+                "deflection_limit": float(deflection_limit) if deflection_limit else None,
+            }
+            ex1, ex2, ex3 = st.columns(3)
+            with ex1:
+                st.download_button(
+                    "Download CSV",
+                    data=export_report_bytes(df, review, _problem, priority, "csv"),
+                    file_name="mechopt_candidates.csv",
+                    mime="text/csv", key="dl_csv",
+                )
+            with ex2:
+                st.download_button(
+                    "Download JSON",
+                    data=export_report_bytes(df, review, _problem, priority, "json"),
+                    file_name="mechopt_report.json",
+                    mime="application/json", key="dl_json",
+                )
+            with ex3:
+                st.download_button(
+                    "Download Report",
+                    data=export_report_bytes(df, review, _problem, priority, "text"),
+                    file_name="mechopt_report.txt",
+                    mime="text/plain", key="dl_txt",
+                )
 
         # 3. Why-not summary (why rejected designs failed) ───────────────────
         if n_total > n_safe:
