@@ -9,7 +9,56 @@ import numpy as np
 import pandas as pd
 
 from .materials import MATERIALS
-from . import sections, beam
+from . import sections, beam, failure_modes
+
+
+def _section_config(sec_type, d, d_mm):
+    """Map (section_type, d) to (section_fn, dims_tuple, dims_string).
+
+    Returns None when the geometry is invalid (fails guard check).
+    """
+    if sec_type == "rectangle":
+        return sections.rectangle, (d, d), f"{d_mm:.0f}x{d_mm:.0f} mm"
+
+    if sec_type == "circle":
+        return sections.circle, (d,), f"d={d_mm:.0f} mm"
+
+    if sec_type == "i_beam":
+        h = d
+        b = d
+        tf = d / 10
+        tw = d / 10
+        if not (h > 2 * tf and b > tw):
+            return None
+        return (sections.i_beam, (b, h, tf, tw),
+                f"{d_mm:.0f}x{d_mm:.0f} tf={d_mm/10:.0f} tw={d_mm/10:.0f} mm")
+
+    if sec_type == "square_tube":
+        w = max(d / 10, 0.002)
+        if not (2 * w < d):
+            return None
+        w_mm = w * 1000
+        return (sections.square_tube, (d, w),
+                f"{d_mm:.0f}x{d_mm:.0f} w={w_mm:.0f} mm")
+
+    if sec_type == "hollow_rectangle":
+        w = max(d / 10, 0.002)
+        if not (2 * w < d):
+            return None
+        w_mm = w * 1000
+        return (sections.hollow_rectangle, (d, d, w),
+                f"{d_mm:.0f}x{d_mm:.0f} w={w_mm:.0f} mm")
+
+    if sec_type == "hollow_circle":
+        wall = max(d / 10, 0.002)
+        di = d - 2 * wall
+        if not (di > 0):
+            return None
+        di_mm = di * 1000
+        return (sections.hollow_circle, (d, di),
+                f"d={d_mm:.0f} di={di_mm:.0f} mm")
+
+    return None
 
 
 def evaluate_candidates(load: float, length: float, load_case: str,
@@ -36,6 +85,9 @@ def evaluate_candidates(load: float, length: float, load_case: str,
     if section_types is None:
         section_types = ["rectangle", "circle"]
 
+    # Buckling effective-length factor depends on load case.
+    K = 2.0 if load_case == "cantilever_end" else 1.0
+
     rows = []
     dims_mm = np.arange(10, 110, 10)  # 10 to 100 mm in steps of 10
 
@@ -45,18 +97,39 @@ def evaluate_candidates(load: float, length: float, load_case: str,
             d = d_mm / 1000.0
             M = beam.max_moment(load, length, load_case)
 
-            if "rectangle" in section_types:
-                props = sections.rectangle(d, d)
+            for sec_type in section_types:
+                result = _section_config(sec_type, d, d_mm)
+                if result is None:
+                    continue  # invalid geometry
+                sec_fn, sec_dims, dims_str = result
+
+                props = sec_fn(*sec_dims)
                 sigma = beam.max_stress(M, props)
-                delta = beam.max_deflection(load, length, mat.E, props, load_case)
+                delta = beam.max_deflection(load, length, mat.E, props,
+                                            load_case)
                 fos = beam.factor_of_safety(sigma, mat.sigma_y)
                 weight = props.A * length * mat.rho
                 cost = weight * mat.cost
-                defl_ok = (deflection_limit is None) or (delta <= deflection_limit)
+                defl_ok = ((deflection_limit is None)
+                           or (delta <= deflection_limit))
+
+                safety_case = failure_modes.evaluate_candidate(
+                    material=mat,
+                    section_fn=sec_fn,
+                    dims=sec_dims,
+                    load=load,
+                    length=length,
+                    load_case=load_case,
+                    fos_target=fos_target,
+                    deflection_limit=deflection_limit,
+                    compression_load=load,
+                    K=K,
+                )
+
                 rows.append({
                     "material": mat.name,
-                    "section": "rectangle",
-                    "dims": f"{d_mm:.0f}x{d_mm:.0f} mm",
+                    "section": sec_type,
+                    "dims": dims_str,
                     "area": props.A,
                     "I": props.I,
                     "weight": weight,
@@ -65,134 +138,8 @@ def evaluate_candidates(load: float, length: float, load_case: str,
                     "deflection": delta,
                     "fos": fos,
                     "safe": (fos >= fos_target) and defl_ok,
+                    "safety_case": safety_case,
                 })
-
-            if "circle" in section_types:
-                props = sections.circle(d)
-                sigma = beam.max_stress(M, props)
-                delta = beam.max_deflection(load, length, mat.E, props, load_case)
-                fos = beam.factor_of_safety(sigma, mat.sigma_y)
-                weight = props.A * length * mat.rho
-                cost = weight * mat.cost
-                defl_ok = (deflection_limit is None) or (delta <= deflection_limit)
-                rows.append({
-                    "material": mat.name,
-                    "section": "circle",
-                    "dims": f"d={d_mm:.0f} mm",
-                    "area": props.A,
-                    "I": props.I,
-                    "weight": weight,
-                    "cost": cost,
-                    "stress": sigma,
-                    "deflection": delta,
-                    "fos": fos,
-                    "safe": (fos >= fos_target) and defl_ok,
-                })
-
-            if "i_beam" in section_types:
-                h = d
-                b = d
-                tf = d / 10
-                tw = d / 10
-                if h > 2 * tf and b > tw:
-                    props = sections.i_beam(b, h, tf, tw)
-                    sigma = beam.max_stress(M, props)
-                    delta = beam.max_deflection(load, length, mat.E, props, load_case)
-                    fos = beam.factor_of_safety(sigma, mat.sigma_y)
-                    weight = props.A * length * mat.rho
-                    cost = weight * mat.cost
-                    defl_ok = (deflection_limit is None) or (delta <= deflection_limit)
-                    rows.append({
-                        "material": mat.name,
-                        "section": "i_beam",
-                        "dims": f"{d_mm:.0f}x{d_mm:.0f} tf={d_mm/10:.0f} tw={d_mm/10:.0f} mm",
-                        "area": props.A,
-                        "I": props.I,
-                        "weight": weight,
-                        "cost": cost,
-                        "stress": sigma,
-                        "deflection": delta,
-                        "fos": fos,
-                        "safe": (fos >= fos_target) and defl_ok,
-                    })
-
-            if "square_tube" in section_types:
-                w = max(d / 10, 0.002)
-                if 2 * w < d:
-                    props = sections.square_tube(d, w)
-                    sigma = beam.max_stress(M, props)
-                    delta = beam.max_deflection(load, length, mat.E, props, load_case)
-                    fos = beam.factor_of_safety(sigma, mat.sigma_y)
-                    weight = props.A * length * mat.rho
-                    cost = weight * mat.cost
-                    defl_ok = (deflection_limit is None) or (delta <= deflection_limit)
-                    w_mm = w * 1000
-                    rows.append({
-                        "material": mat.name,
-                        "section": "square_tube",
-                        "dims": f"{d_mm:.0f}x{d_mm:.0f} w={w_mm:.0f} mm",
-                        "area": props.A,
-                        "I": props.I,
-                        "weight": weight,
-                        "cost": cost,
-                        "stress": sigma,
-                        "deflection": delta,
-                        "fos": fos,
-                        "safe": (fos >= fos_target) and defl_ok,
-                    })
-
-            if "hollow_rectangle" in section_types:
-                # Box tube: square outer, wall = d/10 (min 2 mm)
-                w = max(d / 10, 0.002)
-                if 2 * w < d:
-                    props = sections.hollow_rectangle(d, d, w)
-                    sigma = beam.max_stress(M, props)
-                    delta = beam.max_deflection(load, length, mat.E, props, load_case)
-                    fos = beam.factor_of_safety(sigma, mat.sigma_y)
-                    weight = props.A * length * mat.rho
-                    cost = weight * mat.cost
-                    defl_ok = (deflection_limit is None) or (delta <= deflection_limit)
-                    w_mm = w * 1000
-                    rows.append({
-                        "material": mat.name,
-                        "section": "hollow_rectangle",
-                        "dims": f"{d_mm:.0f}x{d_mm:.0f} w={w_mm:.0f} mm",
-                        "area": props.A,
-                        "I": props.I,
-                        "weight": weight,
-                        "cost": cost,
-                        "stress": sigma,
-                        "deflection": delta,
-                        "fos": fos,
-                        "safe": (fos >= fos_target) and defl_ok,
-                    })
-
-            if "hollow_circle" in section_types:
-                # Round tube: wall = d/10 (min 2 mm)
-                wall = max(d / 10, 0.002)
-                di = d - 2 * wall
-                if di > 0:
-                    props = sections.hollow_circle(d, di)
-                    sigma = beam.max_stress(M, props)
-                    delta = beam.max_deflection(load, length, mat.E, props, load_case)
-                    fos = beam.factor_of_safety(sigma, mat.sigma_y)
-                    weight = props.A * length * mat.rho
-                    cost = weight * mat.cost
-                    defl_ok = (deflection_limit is None) or (delta <= deflection_limit)
-                    di_mm = di * 1000
-                    rows.append({
-                        "material": mat.name,
-                        "section": "hollow_circle",
-                        "dims": f"d={d_mm:.0f} di={di_mm:.0f} mm",
-                        "area": props.A,
-                        "I": props.I,
-                        "weight": weight,
-                        "cost": cost,
-                        "stress": sigma,
-                        "deflection": delta,
-                        "fos": fos,
-                        "safe": (fos >= fos_target) and defl_ok,
-                    })
 
     return pd.DataFrame(rows)
 
