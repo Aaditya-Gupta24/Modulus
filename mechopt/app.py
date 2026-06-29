@@ -647,26 +647,6 @@ def card(title=None):
 CARD_END = "</div>"
 
 
-# ─── Header ──────────────────────────────────────────────────────────────────
-st.markdown(
-    '<div class="mo-hdr">'
-    '<div class="mo-hdr-l">'
-    '<div class="mo-logo">'
-    '<svg width="18" height="18" viewBox="0 0 18 18">'
-    '<rect x="3" y="3" width="12" height="12" rx="1" transform="rotate(45 9 9)" '
-    'fill="none" stroke="white" stroke-width="1.8"/>'
-    '</svg></div>'
-    '<div>'
-    '<div class="mo-brand-name">MechOpt</div>'
-    '<div class="mo-brand-sub">Mechanical design screening · first-pass static analysis</div>'
-    '</div></div>'
-    f'<div class="mo-chip">'
-    f'<span class="mo-chip-dot"></span>{_unit_choice} units · static load'
-    f'</div></div>',
-    unsafe_allow_html=True,
-)
-
-
 # ─── Unit system selector (sidebar) ──────────────────────────────────────────
 with st.sidebar:
     st.markdown(
@@ -703,6 +683,26 @@ with st.sidebar:
     _lbl_frc  = unit_label("force", US)
     _lbl_defl = unit_label("deflection", US)
     _lbl_mass = unit_label("mass", US)
+
+
+# ─── Header ──────────────────────────────────────────────────────────────────
+st.markdown(
+    '<div class="mo-hdr">'
+    '<div class="mo-hdr-l">'
+    '<div class="mo-logo">'
+    '<svg width="18" height="18" viewBox="0 0 18 18">'
+    '<rect x="3" y="3" width="12" height="12" rx="1" transform="rotate(45 9 9)" '
+    'fill="none" stroke="white" stroke-width="1.8"/>'
+    '</svg></div>'
+    '<div>'
+    '<div class="mo-brand-name">MechOpt</div>'
+    '<div class="mo-brand-sub">Mechanical design screening · first-pass static analysis</div>'
+    '</div></div>'
+    f'<div class="mo-chip">'
+    f'<span class="mo-chip-dot"></span>{_unit_choice} units · static load'
+    f'</div></div>',
+    unsafe_allow_html=True,
+)
 
 
 # ─── Tabs ────────────────────────────────────────────────────────────────────
