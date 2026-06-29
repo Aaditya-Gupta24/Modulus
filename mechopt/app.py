@@ -9,9 +9,12 @@ import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 
+from collections import Counter
+
 from mechopt.beam import max_deflection, max_moment, max_stress, factor_of_safety
 from mechopt.bracket import evaluate_bracket
 from mechopt.components.section_editor import section_editor
+from mechopt.decision import rank_candidates, pareto_front, knee_point, classify_infeasible, explain_winner
 from mechopt.failure_modes import Status
 from mechopt.materials import MATERIALS
 from mechopt.optimizer import evaluate_candidates, recommend
@@ -930,7 +933,68 @@ with tab_beam:
                 f'</div>'
             )
 
-        # 2. Tradeoff space ───────────────────────────────────────────────────
+        # 2. Ranked top-5 table ──────────────────────────────────────────────
+        if not safe_df.empty:
+            ranked = rank_candidates(df, priority)
+            top5 = ranked[ranked["safe"]].head(5)
+            top5_html = card(f"Top candidates &middot; {priority.title()}")
+            top5_html += '<table class="mt"><thead><tr>'
+            top5_html += (
+                '<th>#</th><th>Material</th><th>Section &middot; Dims</th>'
+                '<th class="n">FoS</th><th class="n">&sigma; MPa</th>'
+                '<th class="n">&delta; mm</th><th class="n">kg</th>'
+                '<th class="n">$</th><th>Controls</th><th>Why</th>'
+                '</tr></thead><tbody>'
+            )
+            for _, trow in top5.iterrows():
+                why_text = explain_winner(trow)
+                if len(why_text) > 80:
+                    why_text = why_text[:77] + "..."
+                ctrl_label = trow["safety_case"].controlling_check.replace("_", " ").title()
+                sec_label = trow["section"].replace("_", " ").title()
+                top5_html += (
+                    f'<tr class="row-safe">'
+                    f'<td style="color:var(--muted);">{int(trow["rank"])}</td>'
+                    f'<td>{mdot(trow["material"])}{trow["material"]}</td>'
+                    f'<td>{sec_label} &middot; {trow["dims"]}</td>'
+                    f'<td class="n">{trow["fos"]:.2f}</td>'
+                    f'<td class="n">{trow["stress"]/1e6:.1f}</td>'
+                    f'<td class="n">{trow["deflection"]*1e3:.2f}</td>'
+                    f'<td class="n">{trow["weight"]:.4f}</td>'
+                    f'<td class="n">{trow["cost"]:.2f}</td>'
+                    f'<td style="font-size:0.75rem;color:var(--muted);">{ctrl_label}</td>'
+                    f'<td style="font-size:0.73rem;color:var(--muted);max-width:220px;">{why_text}</td>'
+                    f'</tr>'
+                )
+            top5_html += '</tbody></table>' + CARD_END
+            st.markdown(top5_html, unsafe_allow_html=True)
+
+        # 3. Why-not summary (why rejected designs failed) ───────────────────
+        if n_total > n_safe:
+            reasons = classify_infeasible(df)
+            unsafe_reasons = reasons[df["safe"] == False]
+            reason_counts = Counter()
+            for r in unsafe_reasons:
+                for part in r.split("|"):
+                    reason_counts[part] += 1
+            n_failed = n_total - n_safe
+            why_html = (
+                f'<div class="callout callout-amber">'
+                f'<strong>Why {n_failed} design{"s" if n_failed != 1 else ""} failed:</strong>'
+                f'<div style="margin-top:8px;">'
+            )
+            for reason, count in reason_counts.most_common():
+                label = reason.replace("_", " ").title()
+                why_html += (
+                    f'<div style="margin:3px 0;font-size:0.82rem;">'
+                    f'<span style="color:var(--red);margin-right:6px;">&#x25cf;</span>'
+                    f'{label}: {count} candidate{"s" if count != 1 else ""}'
+                    f'</div>'
+                )
+            why_html += '</div></div>'
+            st.markdown(why_html, unsafe_allow_html=True)
+
+        # 4. Tradeoff space ───────────────────────────────────────────────────
         st.markdown(
             f'<div class="card">'
             f'<div class="card-hd">Tradeoff space</div>'
@@ -959,7 +1023,85 @@ with tab_beam:
                 use_container_width=True, key="p_cost",
             )
 
-        # 3. All candidates table ─────────────────────────────────────────────
+        # Pareto front scatter plot ───────────────────────────────────────────
+        if not safe_df.empty:
+            front = pareto_front(df)
+            if not front.empty:
+                knee_idx = knee_point(front)
+                knee_row = front.loc[knee_idx]
+
+                fig_pareto = go.Figure()
+
+                # Safe non-Pareto candidates: small gray dots
+                non_pareto = safe_df[~safe_df.index.isin(front.index)]
+                if not non_pareto.empty:
+                    fig_pareto.add_trace(go.Scatter(
+                        x=non_pareto["weight"], y=non_pareto["cost"],
+                        mode="markers",
+                        marker=dict(size=6, color="#3a3f52", opacity=0.5,
+                                    line=dict(width=0.5, color="#4b5068")),
+                        name="Safe (non-Pareto)",
+                        text=non_pareto.apply(
+                            lambda r: f"{r['material']}<br>{r['section']} {r['dims']}"
+                                      f"<br>FoS {r['fos']:.2f}"
+                                      f"<br>{r['weight']:.4f} kg · ${r['cost']:.2f}",
+                            axis=1),
+                        hoverinfo="text",
+                    ))
+
+                # Pareto front candidates: larger colored dots by material
+                for mat in front["material"].unique():
+                    mdf = front[front["material"] == mat]
+                    fig_pareto.add_trace(go.Scatter(
+                        x=mdf["weight"], y=mdf["cost"], mode="markers",
+                        marker=dict(size=10, color=MAT_CLR.get(mat, "#6b7280"),
+                                    line=dict(width=1, color="rgba(0,0,0,0.3)")),
+                        name=mat,
+                        text=mdf.apply(
+                            lambda r: f"<b>{r['material']}</b><br>"
+                                      f"{r['section']} {r['dims']}<br>"
+                                      f"FoS <b>{r['fos']:.2f}</b><br>"
+                                      f"{r['weight']:.4f} kg · ${r['cost']:.2f}",
+                            axis=1),
+                        hoverinfo="text",
+                    ))
+
+                # Dashed line connecting Pareto front (sorted by weight)
+                front_sorted = front.sort_values("weight")
+                fig_pareto.add_trace(go.Scatter(
+                    x=front_sorted["weight"], y=front_sorted["cost"],
+                    mode="lines",
+                    line=dict(dash="dash", color=ACCENT_HEX, width=1.5),
+                    name="Pareto front", showlegend=True,
+                    hoverinfo="skip",
+                ))
+
+                # Knee point: ring marker
+                fig_pareto.add_trace(go.Scatter(
+                    x=[knee_row["weight"]], y=[knee_row["cost"]],
+                    mode="markers",
+                    marker=dict(size=16, color="rgba(0,0,0,0)",
+                                line=dict(width=2.5, color=ACCENT_HEX),
+                                symbol="circle-open"),
+                    name="Knee point", showlegend=True,
+                    text=[f"<b>Knee point</b><br>{knee_row['material']}<br>"
+                          f"{knee_row['section']} {knee_row['dims']}<br>"
+                          f"FoS {knee_row['fos']:.2f}<br>"
+                          f"{knee_row['weight']:.4f} kg · ${knee_row['cost']:.2f}"],
+                    hoverinfo="text",
+                ))
+
+                fig_pareto.update_layout(
+                    **PLOTLY_LAYOUT,
+                    title=dict(text="Pareto Front — Weight vs Cost",
+                               font=dict(size=13)),
+                )
+                fig_pareto.update_xaxes(title_text="Weight (kg)")
+                fig_pareto.update_yaxes(title_text="Cost ($)")
+                st.plotly_chart(fig_pareto, use_container_width=True,
+                                key="p_pareto")
+
+        # All candidates table ────────────────────────────────────────────────
         show_all = st.checkbox("Show all candidates (including unsafe)",
                                value=False, key="b_show_all")
         view_df = df if show_all else safe_df
