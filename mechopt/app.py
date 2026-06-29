@@ -12,7 +12,7 @@ import streamlit as st
 from collections import Counter
 
 from mechopt.beam import max_deflection, max_moment, max_stress, factor_of_safety
-from mechopt.bracket import evaluate_bracket
+from mechopt.bracket import evaluate_bracket, compare_gussets, GUSSET_TYPES
 from mechopt.components.section_editor import section_editor
 from mechopt.decision import rank_candidates, pareto_front, knee_point, classify_infeasible, explain_winner
 from mechopt.design_review import generate_review
@@ -1415,6 +1415,26 @@ with tab_bracket:
         bolt_allow = st.number_input("Allowable stress (MPa)", min_value=50.0,
                                      value=640.0, step=50.0,
                                      key="br_ba") * 1e6
+        bolt_edge = st.number_input("Edge distance (mm)", min_value=5.0,
+                                    value=20.0, step=1.0,
+                                    key="br_edge") / 1000.0
+
+        st.markdown('<div class="rh">Gusset</div>', unsafe_allow_html=True)
+        gusset_labels = {
+            "none": "None", "flat_L": "Flat L",
+            "triangular": "Triangular", "double_gusset": "Double Gusset",
+            "ribbed": "Ribbed",
+        }
+        br_gusset_type = st.selectbox(
+            "Gusset type", GUSSET_TYPES,
+            format_func=lambda g: gusset_labels.get(g, g),
+            key="br_gusset",
+        )
+        br_gusset_depth = 0.0
+        if br_gusset_type != "none":
+            br_gusset_depth = st.number_input(
+                "Gusset depth (mm)", min_value=5.0, value=50.0,
+                step=5.0, key="br_gd") / 1000.0
 
         st.markdown(bracket_svg(), unsafe_allow_html=True)
 
@@ -1424,6 +1444,8 @@ with tab_bracket:
         mat=br_mat, fos_target=br_fos, bolt_count=bolt_count,
         bolt_diameter=bolt_dia, bolt_spacing_v=bolt_spacing,
         bolt_sigma_allow=bolt_allow, deflection_limit=br_defl_limit,
+        gusset_type=br_gusset_type, gusset_depth=br_gusset_depth,
+        edge_distance=bolt_edge,
     )
 
     with br_results:
@@ -1459,6 +1481,12 @@ with tab_bracket:
                              if br_mat.sigma_y else 0, invert=True)
         bars_html += util_bar("Bolt combined",
                               br_result.bolt.combined_utilization, invert=True)
+        bearing_ratio = (br_result.bolt.bearing_stress / (1.5 * br_mat.sigma_y)
+                         if br_mat.sigma_y else 0)
+        bars_html += util_bar("Bearing", bearing_ratio, invert=True)
+        tearout_ratio = (br_result.bolt.tearout_stress / (0.6 * br_mat.sigma_y)
+                         if br_mat.sigma_y else 0)
+        bars_html += util_bar("Tear-out", tearout_ratio, invert=True)
         if br_defl_limit and br_defl_limit > 0:
             bars_html += util_bar("Deflection budget",
                                   br_result.plate_deflection / br_defl_limit,
@@ -1487,6 +1515,51 @@ with tab_bracket:
                        f"{br_result.bolt.combined_utilization:.0%}")
             st.markdown(CARD_END, unsafe_allow_html=True)
 
+        # Bearing & tear-out detail card
+        st.markdown(card("Bearing & tear-out"), unsafe_allow_html=True)
+        bt1, bt2, bt3, bt4 = st.columns(4)
+        bt1.metric("Bearing Stress",
+                   f"{br_result.bolt.bearing_stress / 1e6:.1f} MPa")
+        bt2.metric("Bearing FoS", f"{br_result.bolt.bearing_fos:.1f}")
+        bt3.metric("Tear-out Stress",
+                   f"{br_result.bolt.tearout_stress / 1e6:.2f} MPa")
+        bt4.metric("Tear-out FoS", f"{br_result.bolt.tearout_fos:.1f}")
+        if not br_result.bolt.edge_distance_ok:
+            st.markdown(
+                '<div class="callout callout-amber" style="margin-top:0.3rem;">'
+                'Edge distance is below 1.5d — risk of tear-out failure.</div>',
+                unsafe_allow_html=True,
+            )
+        st.markdown(CARD_END, unsafe_allow_html=True)
+
+        # Gusset comparison card
+        if br_gusset_type != "none" and br_result.gusset is not None:
+            baseline = evaluate_bracket(
+                P=br_load, e=br_offset, width=br_width, thickness=br_thick,
+                mat=br_mat, fos_target=br_fos, bolt_count=bolt_count,
+                bolt_diameter=bolt_dia, bolt_spacing_v=bolt_spacing,
+                bolt_sigma_allow=bolt_allow, deflection_limit=br_defl_limit,
+                gusset_type="none", edge_distance=bolt_edge,
+            )
+            defl_red = ((baseline.plate_deflection - br_result.plate_deflection)
+                        / baseline.plate_deflection * 100
+                        if baseline.plate_deflection > 0 else 0)
+            st.markdown(card("Gusset effect"), unsafe_allow_html=True)
+            gc1, gc2, gc3 = st.columns(3)
+            gc1.metric("Deflection reduction", f"{defl_red:.1f}%")
+            gc2.metric("Added mass", f"{br_result.gusset.mass * 1000:.1f} g")
+            gc3.metric("Control shifts to",
+                       br_result.controlling.replace("_", " ").title())
+            st.markdown(CARD_END, unsafe_allow_html=True)
+
+        # Warnings
+        if br_result.bolt.warnings:
+            warn_html = '<div class="callout callout-amber" style="margin-top:0.5rem;">'
+            for w in br_result.bolt.warnings:
+                warn_html += f'<div style="font-size:0.85rem;">{w}</div>'
+            warn_html += '</div>'
+            st.markdown(warn_html, unsafe_allow_html=True)
+
         if br_result.controlling == "plate_bending":
             advice = ("The <strong>plate</strong> is the weak link. Stiffness "
                       "scales with thickness cubed — even a small increase in "
@@ -1496,6 +1569,12 @@ with tab_bracket:
             advice = ("The <strong>bolt group</strong> governs. Try larger bolt "
                       "diameter, more bolts, or wider vertical spacing. "
                       "Changing the plate won't help.")
+        elif br_result.controlling == "bearing":
+            advice = ("<strong>Bearing</strong> controls. Use a thicker plate "
+                      "or larger bolt diameter to spread the contact pressure.")
+        elif br_result.controlling == "tearout":
+            advice = ("<strong>Tear-out</strong> controls. Increase the edge "
+                      "distance or use a thicker plate.")
         elif br_result.controlling == "deflection":
             advice = ("<strong>Deflection</strong> controls. Increase plate "
                       "thickness, use a stiffer material (higher E), or "
@@ -1595,14 +1674,15 @@ with tab_compare:
                 unsafe_allow_html=True)
 
     st.markdown(card("Bracket summary"), unsafe_allow_html=True)
-    bs1, bs2, bs3, bs4, bs5 = st.columns(5)
+    bs1, bs2, bs3, bs4, bs5, bs6 = st.columns(6)
     bs1.metric("Overall FoS", f"{br_result.overall_fos:.2f}")
     bs2.metric("Plate Stress", f"{br_result.plate_stress / 1e6:.1f} MPa")
     bs3.metric("Bolt FoS", f"{br_result.bolt.bolt_fos:.2f}")
-    bs4.metric("Controls", br_result.controlling.replace("_", " ").title())
+    bs4.metric("Bearing FoS", f"{br_result.bolt.bearing_fos:.1f}")
+    bs5.metric("Controls", br_result.controlling.replace("_", " ").title())
     bc2 = "badge-safe" if br_result.safe else "badge-unsafe"
     bt2 = "SAFE" if br_result.safe else "UNSAFE"
-    bs5.markdown(f'<div style="margin-top:8px;">'
+    bs6.markdown(f'<div style="margin-top:8px;">'
                  f'<span class="badge {bc2}">{bt2}</span></div>',
                  unsafe_allow_html=True)
     st.markdown(CARD_END, unsafe_allow_html=True)
@@ -1634,9 +1714,12 @@ with tab_assumptions:
             "<li>Prismatic (constant cross-section) beams</li>"
             "<li>Yielding-based factor of safety</li>"
             "<li>Simplified cantilever plate model for brackets</li>"
+            "<li>Gusset variants (flat L, triangular, double, ribbed)</li>"
             "<li>Linear-elastic bolt-group load distribution</li>"
             "<li>Equal direct shear among bolts</li>"
             "<li>Moment-induced bolt tension ∝ distance from centroid</li>"
+            "<li>Bolt bearing stress (AISC 1.5&sigma;<sub>y</sub>)</li>"
+            "<li>Bolt tear-out / edge-distance check</li>"
             "</ul>" + CARD_END,
             unsafe_allow_html=True,
         )
@@ -1658,7 +1741,7 @@ with tab_assumptions:
             '<div class="asec">Bracket</div>'
             '<ul class="al red">'
             "<li>Weld design</li>"
-            "<li>Bearing, tear-out, block shear failure</li>"
+            "<li>Block shear failure</li>"
             "<li>Prying action on bolts</li>"
             "<li>Plate buckling</li>"
             "<li>Bolt preload and thread engagement</li>"
