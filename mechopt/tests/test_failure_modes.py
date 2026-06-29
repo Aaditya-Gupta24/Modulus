@@ -325,3 +325,73 @@ def test_warning_status():
 
     # Overall should be WARNING (no failures, but a warning exists)
     assert sc.overall_status is Status.WARNING
+
+
+# ---------------------------------------------------------------------------
+# 8. Optimizer integration — SafetyCase attached to every candidate row
+# ---------------------------------------------------------------------------
+
+def test_optimizer_attaches_safety_case():
+    """evaluate_candidates attaches a SafetyCase to every row."""
+    from mechopt.optimizer import evaluate_candidates
+    df = evaluate_candidates(
+        load=300.0, length=0.8, load_case="cantilever_end", fos_target=1.5,
+        material_keys=["steel_a36"], section_types=["rectangle"],
+        deflection_limit=0.010,
+    )
+    assert len(df) > 0
+    for _, row in df.iterrows():
+        sc = row["safety_case"]
+        assert isinstance(sc, SafetyCase)
+        assert len(sc.checks) >= 4  # bending_stress, deflection, yield_fos, euler_buckling + shear + torsion
+        assert sc.overall_status in (Status.PASS, Status.FAIL, Status.WARNING)
+        assert sc.controlling_check  # non-empty string
+
+
+# ---------------------------------------------------------------------------
+# 9. SafetyCase matches oracle Beam A (steel rect 30x30 mm)
+# ---------------------------------------------------------------------------
+
+def test_safety_case_matches_oracle_beam_a():
+    """SafetyCase for steel rect 30x30 in optimizer output matches Beam A oracle."""
+    from mechopt.optimizer import evaluate_candidates
+    df = evaluate_candidates(
+        load=300.0, length=0.8, load_case="cantilever_end", fos_target=1.5,
+        material_keys=["steel_a36"], section_types=["rectangle"],
+        deflection_limit=0.010,
+    )
+    # Find the 30x30 mm candidate
+    row_30 = df[df["dims"] == "30x30 mm"].iloc[0]
+    sc = row_30["safety_case"]
+
+    # Overall should pass
+    assert sc.overall_status is Status.PASS
+    assert sc.controlling_check == "deflection"
+    assert sc.failure_reasons == []
+
+    # Check names should include all expected checks
+    check_names = [c.name for c in sc.checks]
+    assert "bending_stress" in check_names
+    assert "deflection" in check_names
+    assert "yield_fos" in check_names
+    assert "euler_buckling" in check_names
+    assert "shear" in check_names
+    assert "torsion" in check_names
+
+
+# ---------------------------------------------------------------------------
+# 10. Shear and torsion are NOT_MODELED in optimizer output
+# ---------------------------------------------------------------------------
+
+def test_safety_case_has_not_modeled_checks():
+    """Shear and torsion are NOT_MODELED in optimizer SafetyCase output."""
+    from mechopt.optimizer import evaluate_candidates
+    df = evaluate_candidates(
+        load=300.0, length=0.8, load_case="cantilever_end", fos_target=1.5,
+        material_keys=["steel_a36"], section_types=["rectangle"],
+    )
+    sc = df.iloc[0]["safety_case"]
+    shear = [c for c in sc.checks if c.name == "shear"][0]
+    torsion = [c for c in sc.checks if c.name == "torsion"][0]
+    assert shear.status is Status.NOT_MODELED
+    assert torsion.status is Status.NOT_MODELED

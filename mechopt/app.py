@@ -12,6 +12,7 @@ import streamlit as st
 from mechopt.beam import max_deflection, max_moment, max_stress, factor_of_safety
 from mechopt.bracket import evaluate_bracket
 from mechopt.components.section_editor import section_editor
+from mechopt.failure_modes import Status
 from mechopt.materials import MATERIALS
 from mechopt.optimizer import evaluate_candidates, recommend
 from mechopt.sections import (
@@ -774,16 +775,8 @@ with tab_beam:
                         if v.name == rec["material"]][0]
             _mat = MATERIALS[_mat_key]
 
-            fos_ratio = fos_target / rec["fos"] if rec["fos"] > 0 else 1.0
-            defl_ratio = (rec["deflection"] / deflection_limit
-                          if deflection_limit and deflection_limit > 0 else 0.0)
-            if deflection_limit and defl_ratio > fos_ratio:
-                controlling = "Deflection"
-            elif fos_ratio > 0.5:
-                controlling = "Stress / Yielding"
-            else:
-                controlling = {"lightest": "Weight", "cheapest": "Cost"}.get(
-                    priority, "Stress / Yielding")
+            sc = rec["safety_case"]
+            controlling = sc.controlling_check.replace("_", " ").title()
 
             badge_cls = "badge-safe" if rec["safe"] else "badge-unsafe"
             badge_txt = "SAFE" if rec["safe"] else "UNSAFE"
@@ -841,6 +834,92 @@ with tab_beam:
                                  invert=True)
             st.markdown(bars, unsafe_allow_html=True)
 
+            # Failure-mode safety-case table
+            fm_html = card("Failure-mode safety case")
+            fm_html += '<table class="mt"><thead><tr>'
+            fm_html += ('<th>Check</th><th>Value</th><th>Limit</th>'
+                        '<th class="n">Margin</th><th>Status</th>')
+            fm_html += '</tr></thead><tbody>'
+            for chk in sc.checks:
+                is_ctrl = chk.name == sc.controlling_check
+                row_style = (' style="font-weight:700;border-left:3px solid '
+                             'var(--accent-hex);"' if is_ctrl else '')
+                td_pre = '<td style="font-weight:700;">' if is_ctrl else '<td>'
+                td_n_pre = '<td class="n" style="font-weight:700;">' if is_ctrl else '<td class="n">'
+
+                check_label = chk.name.replace("_", " ").title()
+
+                if chk.status is Status.NOT_MODELED:
+                    val_str = "\u2014"
+                    lim_str = "\u2014"
+                    margin_str = "\u2014"
+                    dot = "\u26a0"
+                    status_text = "NOT MODELED"
+                    status_color = "#8b90a0"
+                else:
+                    # Format value and limit with appropriate units
+                    if chk.name == "bending_stress":
+                        val_str = f"{chk.actual / 1e6:.1f} MPa"
+                        lim_str = f"{chk.allowable / 1e6:.1f} MPa"
+                    elif chk.name == "deflection":
+                        val_str = f"{chk.actual * 1e3:.2f} mm"
+                        lim_str = f"{chk.allowable * 1e3:.1f} mm"
+                    elif chk.name == "yield_fos":
+                        val_str = f"{chk.actual:.2f}"
+                        lim_str = f"{chk.allowable:.2f}"
+                    elif chk.name == "euler_buckling":
+                        val_str = f"FoS {chk.actual:.1f}"
+                        lim_str = f"FoS {chk.allowable:.1f}"
+                    else:
+                        val_str = f"{chk.actual:.2f}"
+                        lim_str = f"{chk.allowable:.2f}"
+
+                    margin_str = f"{chk.margin * 100:.1f}%"
+
+                    if chk.status is Status.PASS:
+                        dot = "\u25cf"
+                        status_text = "PASS"
+                        status_color = "#34d399"
+                    elif chk.status is Status.FAIL:
+                        dot = "\u25cf"
+                        status_text = "FAIL"
+                        status_color = "#f87171"
+                    else:  # WARNING
+                        dot = "\u26a0"
+                        status_text = "WARNING"
+                        status_color = "#fbbf24"
+
+                rc_class = ""
+                if is_ctrl:
+                    rc_class = ' class="row-safe"' if chk.status is Status.PASS else ' class="row-fail"'
+
+                fm_html += (
+                    f'<tr{rc_class}>'
+                    f'{td_pre}{check_label}</td>'
+                    f'{td_pre}{val_str}</td>'
+                    f'{td_pre}{lim_str}</td>'
+                    f'{td_n_pre}{margin_str}</td>'
+                    f'{td_pre}<span style="color:{status_color};">'
+                    f'{dot} {status_text}</span></td></tr>')
+            fm_html += '</tbody></table>'
+
+            # Overall status badge
+            if sc.overall_status is Status.PASS:
+                ov_color, ov_text = "#34d399", "ALL CHECKS PASS"
+            elif sc.overall_status is Status.FAIL:
+                ov_color, ov_text = "#f87171", "FAIL"
+                if sc.failure_reasons:
+                    ov_text += " \u2014 " + ", ".join(
+                        r.replace("_", " ").title() for r in sc.failure_reasons)
+            else:
+                ov_color, ov_text = "#fbbf24", "WARNING"
+
+            fm_html += (
+                f'<div style="margin-top:10px;font-size:0.78rem;color:{ov_color};'
+                f'font-weight:700;">{ov_text}</div>')
+            fm_html += CARD_END
+            st.markdown(fm_html, unsafe_allow_html=True)
+
             tradeoff_feedback = (
                 f'<div class="rec-foot">'
                 f'Picked as the <strong>{priority}</strong> option from '
@@ -892,7 +971,7 @@ with tab_beam:
         thtml += ('<th>Material</th><th>Section</th><th>Dims</th>'
                   '<th class="n">FoS</th><th class="n">σ MPa</th>'
                   '<th class="n">δ mm</th><th class="n">kg</th>'
-                  '<th class="n">$</th><th>Status</th>')
+                  '<th class="n">$</th><th>Controls</th><th>Status</th>')
         thtml += '</tr></thead><tbody>'
         sorted_df = view_df.sort_values(["safe", "fos"],
                                         ascending=[False, False])
@@ -909,6 +988,8 @@ with tab_beam:
                 f'<td class="n">{row["deflection"]*1e3:.2f}</td>'
                 f'<td class="n">{row["weight"]:.4f}</td>'
                 f'<td class="n">{row["cost"]:.2f}</td>'
+                f'<td style="font-size:0.75rem;color:var(--muted);">'
+                f'{row["safety_case"].controlling_check.replace("_", " ").title()}</td>'
                 f'<td><span style="display:inline-block;width:8px;height:8px;'
                 f'border-radius:50%;background:{dot_c};"></span></td></tr>')
         thtml += '</tbody></table>'
