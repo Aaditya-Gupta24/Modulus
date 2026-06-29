@@ -237,9 +237,9 @@ def test_tearout_stress_function():
 
 def test_tearout_fos_in_result():
     """shear_allow = 0.6*250e6 = 150 MPa,
-    FoS = 150e6 / 438596.49 = 341.88."""
+    FoS = 150e6 / 438596.49 = 342.0."""
     result = evaluate_bracket(**_BR_KWARGS, edge_distance=0.02)
-    assert result.bolt.tearout_fos == pytest.approx(341.88, rel=1e-2)
+    assert result.bolt.tearout_fos == pytest.approx(342.0, rel=1e-3)
 
 
 def test_edge_distance_ok_when_adequate():
