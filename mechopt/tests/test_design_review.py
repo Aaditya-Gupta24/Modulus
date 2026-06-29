@@ -71,21 +71,19 @@ def test_review_beam_a_controlling_constraint():
 
 
 # ---------------------------------------------------------------------------
-# 2. Unmodeled risks include shear and torsion
+# 2. Unmodeled risks include torsion (shear is now modeled)
 # ---------------------------------------------------------------------------
 
 def test_review_lists_unmodeled_risks():
-    """The review must flag shear and torsion as unmodeled risks.
+    """The review must flag torsion as unmodeled (no torque input).
 
-    MechOpt currently models bending stress, buckling, and deflection.
-    Shear and torsion are real failure modes not captured in the analysis,
-    so the review must warn about them.
+    Shear is now actively modeled. Torsion remains NOT_MODELED when no
+    torque is applied, so the review must still warn about it.
     """
     review = _generate_beam_a_review()
 
-    assert "shear" in review.unmodeled_risks
+    assert "shear" not in review.unmodeled_risks
     assert "torsion" in review.unmodeled_risks
-    assert len(review.unmodeled_risks) == 2
 
 
 # ---------------------------------------------------------------------------

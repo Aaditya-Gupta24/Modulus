@@ -1,8 +1,8 @@
 """Failure-mode screening: evaluate a beam candidate against multiple checks.
 
-Runs bending stress, deflection, yield FoS, Euler buckling, and placeholder
-shear / torsion checks, then rolls up results into a SafetyCase with an
-overall pass / fail / warning verdict.
+Runs bending stress, deflection, yield FoS, Euler buckling, shear,
+torsion (when torque given), and local buckling checks, then rolls up
+results into a SafetyCase with an overall pass / fail / warning verdict.
 """
 
 from dataclasses import dataclass
@@ -49,7 +49,8 @@ def _status_from_margin(margin: float) -> Status:
 def evaluate_candidate(material, section_fn, dims, load, length, load_case,
                        fos_target=1.5, deflection_limit=None,
                        compression_load=None, K=1.0,
-                       section_type=None, dims_dict=None) -> SafetyCase:
+                       section_type=None, dims_dict=None,
+                       torque=None) -> SafetyCase:
     """Evaluate a beam candidate against all failure-mode checks.
 
     Parameters
@@ -136,25 +137,50 @@ def evaluate_candidate(material, section_fn, dims, load, length, load_case,
             status=_status_from_margin(margin_buck),
         ))
 
-    # -- shear (not modeled) --
+    # -- shear --
+    V = beam.max_shear(load, load_case)
+    _st = section_type if section_type is not None else "rectangle"
+    tau_max = beam.max_shear_stress(V, props.A, _st)
+    tau_allow = 0.6 * material.sigma_y
+    s_fos = beam.shear_fos(tau_max, material.sigma_y)
+    margin_shear = (s_fos - fos_target) / fos_target
     checks.append(CheckResult(
         name="shear",
-        actual=0.0,
-        allowable=0.0,
-        margin=0.0,
-        status=Status.NOT_MODELED,
-        notes="Shear check not yet implemented",
+        actual=s_fos,
+        allowable=fos_target,
+        margin=margin_shear,
+        status=_status_from_margin(margin_shear),
+        notes=f"\u03c4={tau_max/1e6:.1f} MPa, FoS_shear={s_fos:.2f}",
     ))
 
-    # -- torsion (not modeled) --
-    checks.append(CheckResult(
-        name="torsion",
-        actual=0.0,
-        allowable=0.0,
-        margin=0.0,
-        status=Status.NOT_MODELED,
-        notes="Torsion check not yet implemented",
-    ))
+    # -- torsion (requires torque input) --
+    if torque is not None and torque > 0:
+        # Simplified torsion: τ = T·c / J
+        # For circular sections, J = 2I; for others, approximate J ≈ I
+        if _st == "circle" or _st == "hollow_circle":
+            J = 2 * props.I
+        else:
+            J = props.I  # conservative approximation for non-circular
+        tau_torsion = torque * props.c / J
+        torsion_fos = tau_allow / tau_torsion
+        margin_tor = (torsion_fos - fos_target) / fos_target
+        checks.append(CheckResult(
+            name="torsion",
+            actual=torsion_fos,
+            allowable=fos_target,
+            margin=margin_tor,
+            status=_status_from_margin(margin_tor),
+            notes=f"\u03c4_t={tau_torsion/1e6:.1f} MPa, FoS_torsion={torsion_fos:.2f}",
+        ))
+    else:
+        checks.append(CheckResult(
+            name="torsion",
+            actual=0.0,
+            allowable=0.0,
+            margin=0.0,
+            status=Status.NOT_MODELED,
+            notes="No torque applied",
+        ))
 
     # -- local_buckling (thin-walled sections only) --
     if section_type is not None:

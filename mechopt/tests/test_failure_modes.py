@@ -268,18 +268,36 @@ def test_beam_c_all_fail():
 
 
 # ---------------------------------------------------------------------------
-# 5. Shear and torsion are not modeled
+# 5. Shear is modeled; torsion is NOT_MODELED when no torque given
 # ---------------------------------------------------------------------------
 
-def test_shear_torsion_not_modeled():
-    """Shear and torsion checks exist in the result but are flagged NOT_MODELED."""
+def test_shear_is_modeled():
+    """Shear check should be active with a real FoS (not NOT_MODELED)."""
     sc = evaluate_candidate(**_beam_a())
 
     shear = _find_check(sc, "shear")
-    assert shear.status is Status.NOT_MODELED
+    assert shear.status is not Status.NOT_MODELED
+    # Steel A36, rect 30x30mm, P=300N, cantilever: shear FoS = 300.0
+    assert shear.actual == pytest.approx(300.0, rel=0.01)
+
+
+def test_torsion_not_modeled_without_torque():
+    """Torsion is NOT_MODELED when no torque is applied."""
+    sc = evaluate_candidate(**_beam_a())
 
     torsion = _find_check(sc, "torsion")
     assert torsion.status is Status.NOT_MODELED
+
+
+def test_torsion_modeled_with_torque():
+    """Torsion check is active when torque is provided."""
+    kwargs = _beam_a()
+    kwargs["torque"] = 10.0  # 10 N·m torque
+    sc = evaluate_candidate(**kwargs)
+
+    torsion = _find_check(sc, "torsion")
+    assert torsion.status is not Status.NOT_MODELED
+    assert torsion.actual > 0
 
 
 # ---------------------------------------------------------------------------
@@ -380,11 +398,11 @@ def test_safety_case_matches_oracle_beam_a():
 
 
 # ---------------------------------------------------------------------------
-# 10. Shear and torsion are NOT_MODELED in optimizer output
+# 10. Shear is modeled, torsion is NOT_MODELED in optimizer output (no torque)
 # ---------------------------------------------------------------------------
 
-def test_safety_case_has_not_modeled_checks():
-    """Shear and torsion are NOT_MODELED in optimizer SafetyCase output."""
+def test_safety_case_shear_modeled_in_optimizer():
+    """Shear is now a real check in optimizer SafetyCase output."""
     from mechopt.optimizer import evaluate_candidates
     df = evaluate_candidates(
         load=300.0, length=0.8, load_case="cantilever_end", fos_target=1.5,
@@ -393,5 +411,6 @@ def test_safety_case_has_not_modeled_checks():
     sc = df.iloc[0]["safety_case"]
     shear = [c for c in sc.checks if c.name == "shear"][0]
     torsion = [c for c in sc.checks if c.name == "torsion"][0]
-    assert shear.status is Status.NOT_MODELED
+    assert shear.status is not Status.NOT_MODELED
+    assert shear.actual > 0
     assert torsion.status is Status.NOT_MODELED

@@ -61,6 +61,22 @@ def _section_config(sec_type, d, d_mm):
     return None
 
 
+def _dims_dict(sec_type, d):
+    """Build a dimension dictionary for local-buckling checks."""
+    if sec_type == "square_tube":
+        w = max(d / 10, 0.002)
+        return {"a": d, "w": w}
+    if sec_type == "hollow_rectangle":
+        w = max(d / 10, 0.002)
+        return {"b": d, "h": d, "w": w}
+    if sec_type == "hollow_circle":
+        wall = max(d / 10, 0.002)
+        return {"d": d, "t": wall}
+    if sec_type == "i_beam":
+        return {"b": d, "tf": d / 10}
+    return {}
+
+
 def evaluate_candidates(load: float, length: float, load_case: str,
                         fos_target: float, *,
                         material_keys: list = None,
@@ -125,6 +141,8 @@ def evaluate_candidates(load: float, length: float, load_case: str,
                     deflection_limit=deflection_limit,
                     compression_load=load,
                     K=K,
+                    section_type=sec_type,
+                    dims_dict=_dims_dict(sec_type, d),
                 )
 
                 rows.append({
