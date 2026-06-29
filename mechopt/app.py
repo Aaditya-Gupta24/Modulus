@@ -16,6 +16,7 @@ from mechopt.bracket import evaluate_bracket, compare_gussets, GUSSET_TYPES
 from mechopt.components.section_editor import section_editor
 from mechopt.decision import rank_candidates, pareto_front, knee_point, classify_infeasible, explain_winner
 from mechopt.design_review import generate_review
+from mechopt.envelope import evaluate_envelope
 from mechopt.failure_modes import Status
 from mechopt.materials import MATERIALS
 from mechopt.optimizer import evaluate_candidates, recommend
@@ -24,6 +25,8 @@ from mechopt.stock import nearest_buyable
 from mechopt.sections import (
     circle, hollow_circle, hollow_rectangle, i_beam, rectangle, square_tube,
 )
+from mechopt.uncertainty import run_monte_carlo, reliability_summary
+from mechopt.units import UnitSystem, convert_input, convert_output, unit_label, format_value
 
 # ─── Page config ─────────────────────────────────────────────────────────────
 st.set_page_config(page_title="MechOpt", page_icon="⬡", layout="wide")
@@ -657,11 +660,49 @@ st.markdown(
     '<div class="mo-brand-name">MechOpt</div>'
     '<div class="mo-brand-sub">Mechanical design screening · first-pass static analysis</div>'
     '</div></div>'
-    '<div class="mo-chip">'
-    '<span class="mo-chip-dot"></span>SI units · static load'
-    '</div></div>',
+    f'<div class="mo-chip">'
+    f'<span class="mo-chip-dot"></span>{_unit_choice} units · static load'
+    f'</div></div>',
     unsafe_allow_html=True,
 )
+
+
+# ─── Unit system selector (sidebar) ──────────────────────────────────────────
+with st.sidebar:
+    st.markdown(
+        '<div style="font-size:10.5px;font-weight:700;color:#2e64d1;'
+        'text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;">'
+        'Unit System</div>',
+        unsafe_allow_html=True,
+    )
+    _unit_choice = st.radio(
+        "Unit System",
+        ["SI", "MM", "Imperial"],
+        index=1,
+        key="unit_system",
+        label_visibility="collapsed",
+        help=(
+            "SI: m / N / Pa / kg  |  "
+            "MM: mm / N / MPa / kg  |  "
+            "Imperial: in / lbf / psi / lb"
+        ),
+    )
+    _US_MAP = {"SI": UnitSystem.SI, "MM": UnitSystem.MM, "Imperial": UnitSystem.IMPERIAL}
+    US = _US_MAP[_unit_choice]
+
+    st.markdown(
+        '<div style="font-size:0.72rem;color:#8b90a0;margin-top:6px;line-height:1.5;">'
+        'Internal computation always in SI.<br>'
+        'Display values are converted for readability.'
+        '</div>',
+        unsafe_allow_html=True,
+    )
+
+    # Convenience labels for the currently active unit system
+    _lbl_len  = unit_label("length", US)
+    _lbl_frc  = unit_label("force", US)
+    _lbl_defl = unit_label("deflection", US)
+    _lbl_mass = unit_label("mass", US)
 
 
 # ─── Tabs ────────────────────────────────────────────────────────────────────
@@ -681,10 +722,33 @@ with tab_beam:
     with rail:
         st.markdown('<div class="rh" style="margin-top:0">Loading</div>',
                     unsafe_allow_html=True)
-        load = st.number_input("Load P (N)", min_value=1.0, value=500.0,
-                               step=50.0, key="b_load")
-        length = st.number_input("Span L (m)", min_value=0.01, value=1.0,
-                                 step=0.1, key="b_len")
+
+        # Default display values in selected unit system
+        _default_load_si   = 500.0          # N
+        _default_length_si = 1.0            # m
+        _default_defl_si   = 0.0            # m (0 = no limit)
+
+        _default_load_disp   = convert_output(_default_load_si,   "force",  US)
+        _default_length_disp = convert_output(_default_length_si, "length", US)
+
+        load_disp = st.number_input(
+            f"Load P ({_lbl_frc})",
+            min_value=0.01,
+            value=float(f"{_default_load_disp:.2f}"),
+            step=50.0 if US is UnitSystem.SI else (10.0 if US is UnitSystem.MM else 10.0),
+            key="b_load",
+        )
+        load = convert_input(load_disp, "force", US)
+
+        length_disp = st.number_input(
+            f"Span L ({_lbl_len})",
+            min_value=0.001,
+            value=float(f"{_default_length_disp:.3f}"),
+            step=0.1 if US is UnitSystem.SI else (100.0 if US is UnitSystem.MM else 1.0),
+            key="b_len",
+        )
+        length = convert_input(length_disp, "length", US)
+
         load_case = st.selectbox(
             "Load case",
             ["cantilever_end", "simply_center"],
@@ -696,10 +760,20 @@ with tab_beam:
         )
         fos_target = st.number_input("Target FoS", min_value=1.0, value=2.0,
                                      step=0.5, key="b_fos")
-        defl_limit_mm = st.number_input(
-            "Max deflection (mm)", min_value=0.0, value=0.0, step=0.5,
-            help="0 = no limit", key="b_defl")
-        deflection_limit = defl_limit_mm / 1000.0 if defl_limit_mm > 0 else None
+
+        _defl_step = 0.5 if US is UnitSystem.SI else (1.0 if US is UnitSystem.MM else 0.05)
+        defl_limit_disp = st.number_input(
+            f"Max deflection ({_lbl_defl})",
+            min_value=0.0, value=0.0, step=_defl_step,
+            help="0 = no limit", key="b_defl",
+        )
+        # Convert display deflection to SI metres for internal computation
+        if defl_limit_disp > 0:
+            deflection_limit = convert_input(defl_limit_disp, "deflection", US)
+            defl_limit_mm = deflection_limit * 1000.0   # keep existing mm var for display
+        else:
+            deflection_limit = None
+            defl_limit_mm = 0.0
 
         st.markdown('<div class="rh">Priority</div>', unsafe_allow_html=True)
         priority = st.radio(
@@ -803,9 +877,11 @@ with tab_beam:
             badge_txt = "SAFE" if rec["safe"] else "UNSAFE"
             svg_html = section_svg(rec["section"])
 
-            defl_str = f'{rec["deflection"]*1e3:.2f} mm'
+            _defl_disp = convert_output(rec["deflection"], "deflection", US)
+            defl_str = f'{_defl_disp:.3f} {_lbl_defl}'
             if deflection_limit:
-                defl_str += f" (limit {defl_limit_mm:.1f} mm)"
+                _defl_lim_disp = convert_output(deflection_limit, "deflection", US)
+                defl_str += f" (limit {_defl_lim_disp:.2f} {_lbl_defl})"
 
             st.markdown(
                 f'<div class="card rec-card">'
@@ -833,15 +909,26 @@ with tab_beam:
             m1.metric("Factor of Safety", f"{rec['fos']:.2f}",
                       delta=f"{delta_fos:+.2f} vs target",
                       delta_color=fos_color)
+            _stress_disp    = convert_output(rec["stress"],    "stress", US)
+            _sigma_y_disp   = convert_output(_mat.sigma_y,    "stress", US)
+            _lbl_stress     = unit_label("stress", US)
             m2.metric("Max Stress",
-                      f"{rec['stress']/1e6:.1f} MPa",
-                      delta=f"σy = {_mat.sigma_y/1e6:.0f} MPa",
+                      f"{_stress_disp:.1f} {_lbl_stress}",
+                      delta=f"σy = {_sigma_y_disp:.0f} {_lbl_stress}",
                       delta_color="off")
+            _defl_metric_disp = convert_output(rec["deflection"], "deflection", US)
+            if deflection_limit:
+                _defl_lim_disp2 = convert_output(deflection_limit, "deflection", US)
+                _defl_delta = f"limit {_defl_lim_disp2:.2f} {_lbl_defl}"
+            else:
+                _defl_delta = "no limit"
             m3.metric("Deflection",
-                      f"{rec['deflection']*1e3:.2f} mm",
-                      delta=f"limit {defl_limit_mm:.1f} mm" if deflection_limit else "no limit",
+                      f"{_defl_metric_disp:.3f} {_lbl_defl}",
+                      delta=_defl_delta,
                       delta_color="off")
-            m4.metric("Weight", f"{rec['weight']:.4f} kg")
+            _weight_disp = convert_output(rec["weight"], "mass", US)
+            _lbl_mass2   = unit_label("mass", US)
+            m4.metric("Weight", f"{_weight_disp:.4f} {_lbl_mass2}")
             m5.metric("Cost", f"${rec['cost']:.2f}")
             m6.metric("Controls", controlling)
 
@@ -1148,6 +1235,300 @@ with tab_beam:
                     file_name="mechopt_report.txt",
                     mime="text/plain", key="dl_txt",
                 )
+
+        # ── Monte Carlo Uncertainty ──────────────────────────────────────────
+        if rec is not None:
+            with st.expander("Monte Carlo Uncertainty", expanded=False):
+                st.markdown(
+                    '<div class="callout callout-blue" style="margin-bottom:12px;">'
+                    'Perturbs load and section dimension with Gaussian noise '
+                    'and reports how FoS varies across the sample population. '
+                    'All computation stays in SI internally.'
+                    '</div>',
+                    unsafe_allow_html=True,
+                )
+                mc_c1, mc_c2, mc_c3 = st.columns(3)
+                with mc_c1:
+                    mc_n = st.slider(
+                        "Samples", min_value=100, max_value=5000,
+                        value=1000, step=100, key="mc_n",
+                    )
+                with mc_c2:
+                    mc_load_cov = st.slider(
+                        "Load CoV", min_value=0.0, max_value=0.30,
+                        value=0.10, step=0.01, format="%.2f", key="mc_load_cov",
+                    )
+                with mc_c3:
+                    mc_dim_cov = st.slider(
+                        "Dimension CoV", min_value=0.0, max_value=0.10,
+                        value=0.02, step=0.005, format="%.3f", key="mc_dim_cov",
+                    )
+
+                if st.button("Run Monte Carlo", key="mc_run"):
+                    # Extract material key and dimension from recommended design
+                    _mc_mat_key = [k for k, v in MATERIALS.items()
+                                   if v.name == rec["material"]][0]
+                    _mc_sec     = rec["section"]
+                    # Parse d_mm from the dims string — use first numeric token
+                    try:
+                        _mc_d_mm = float(rec["dims"].replace("d=", "").split()[0].split("x")[0])
+                    except (ValueError, IndexError):
+                        _mc_d_mm = 30.0
+
+                    try:
+                        mc_result = run_monte_carlo(
+                            material_key=_mc_mat_key,
+                            section_type=_mc_sec,
+                            d_mm=_mc_d_mm,
+                            load=float(load),
+                            length=float(length),
+                            load_case=str(load_case),
+                            fos_target=float(fos_target),
+                            n_samples=mc_n,
+                            load_cov=mc_load_cov,
+                            dimension_cov=mc_dim_cov,
+                        )
+
+                        # Display key statistics
+                        st.session_state["mc_result"] = mc_result
+                    except Exception as _mc_err:
+                        st.error(f"Monte Carlo error: {_mc_err}")
+
+                # Show results if available
+                if "mc_result" in st.session_state and st.session_state["mc_result"] is not None:
+                    mc_r = st.session_state["mc_result"]
+
+                    # Summary text from backend
+                    st.markdown(
+                        f'<div class="callout callout-green" style="margin:8px 0;">'
+                        f'{reliability_summary(mc_r).replace(chr(10), "<br>")}'
+                        f'</div>',
+                        unsafe_allow_html=True,
+                    )
+
+                    # Metric grid: FoS statistics
+                    p_fail_pct = mc_r.failure_probability * 100.0
+                    fail_cls   = "callout-red" if p_fail_pct > 5 else "callout-green"
+
+                    mc_m1, mc_m2, mc_m3, mc_m4 = st.columns(4)
+                    mc_m1.metric("FoS mean", f"{mc_r.fos_mean:.3f}")
+                    mc_m2.metric("FoS std", f"{mc_r.fos_std:.3f}")
+                    mc_m3.metric("FoS P5", f"{mc_r.fos_p5:.3f}",
+                                 help="5th percentile — 5% of samples fall below this")
+                    mc_m4.metric("FoS P95", f"{mc_r.fos_p95:.3f}",
+                                 help="95th percentile")
+
+                    mc_m5, mc_m6 = st.columns(2)
+
+                    # Deflection stats in display units
+                    _mc_defl_mean = convert_output(mc_r.deflection_mean, "deflection", US)
+                    _mc_defl_std  = convert_output(mc_r.deflection_std,  "deflection", US)
+                    _mc_str_mean  = convert_output(mc_r.stress_mean, "stress", US)
+                    _mc_str_std   = convert_output(mc_r.stress_std,  "stress", US)
+                    _mc_str_lbl   = unit_label("stress", US)
+
+                    mc_m5.metric(
+                        f"Deflection mean ({_lbl_defl})",
+                        f"{_mc_defl_mean:.3f}",
+                        delta=f"± {_mc_defl_std:.3f}",
+                        delta_color="off",
+                    )
+                    mc_m6.metric(
+                        f"Stress mean ({_mc_str_lbl})",
+                        f"{_mc_str_mean:.1f}",
+                        delta=f"± {_mc_str_std:.1f}",
+                        delta_color="off",
+                    )
+
+                    st.markdown(
+                        f'<div class="callout {fail_cls}" style="margin-top:8px;">'
+                        f'<strong>P(fail):</strong> {p_fail_pct:.1f}% of samples had '
+                        f'FoS below the target of {fos_target:.1f}. '
+                        f'Ran {mc_r.n_samples} valid samples.'
+                        f'</div>',
+                        unsafe_allow_html=True,
+                    )
+
+        # ── Load-Case Envelope ───────────────────────────────────────────────
+        if rec is not None:
+            with st.expander("Load-Case Envelope", expanded=False):
+                st.markdown(
+                    '<div class="callout callout-blue" style="margin-bottom:12px;">'
+                    'Evaluate the recommended design under 2–4 independent load cases '
+                    'and identify the governing (worst-case) scenario.'
+                    '</div>',
+                    unsafe_allow_html=True,
+                )
+
+                env_n = st.number_input(
+                    "Number of load cases", min_value=2, max_value=4,
+                    value=2, step=1, key="env_n",
+                )
+
+                env_cases_input = []
+                _env_lc_opts = {
+                    "cantilever_end": "Cantilever · end load",
+                    "simply_center":  "Simply supported · center",
+                }
+                for _ei in range(int(env_n)):
+                    st.markdown(
+                        f'<div style="font-size:0.75rem;font-weight:700;color:var(--muted);'
+                        f'text-transform:uppercase;letter-spacing:0.5px;'
+                        f'margin:10px 0 6px;">Load case {_ei + 1}</div>',
+                        unsafe_allow_html=True,
+                    )
+                    _ec1, _ec2, _ec3, _ec4 = st.columns([2, 2, 2, 2])
+                    with _ec1:
+                        _env_name = st.text_input(
+                            "Name", value=f"LC{_ei + 1}",
+                            key=f"env_name_{_ei}",
+                        )
+                    with _ec2:
+                        _env_load_disp = st.number_input(
+                            f"Load ({_lbl_frc})",
+                            min_value=0.01,
+                            value=float(f"{convert_output(float(load), 'force', US):.2f}"),
+                            step=50.0,
+                            key=f"env_load_{_ei}",
+                        )
+                        _env_load_si = convert_input(_env_load_disp, "force", US)
+                    with _ec3:
+                        _env_len_disp = st.number_input(
+                            f"Length ({_lbl_len})",
+                            min_value=0.001,
+                            value=float(f"{convert_output(float(length), 'length', US):.3f}"),
+                            step=0.1 if US is UnitSystem.SI else 100.0,
+                            key=f"env_len_{_ei}",
+                        )
+                        _env_len_si = convert_input(_env_len_disp, "length", US)
+                    with _ec4:
+                        _env_lc_type = st.selectbox(
+                            "Type",
+                            list(_env_lc_opts.keys()),
+                            format_func=lambda x: _env_lc_opts[x],
+                            key=f"env_lc_{_ei}",
+                        )
+                    env_cases_input.append({
+                        "name":      _env_name,
+                        "load":      _env_load_si,
+                        "length":    _env_len_si,
+                        "load_case": _env_lc_type,
+                    })
+
+                if st.button("Evaluate Envelope", key="env_run"):
+                    _env_mat_key = [k for k, v in MATERIALS.items()
+                                    if v.name == rec["material"]][0]
+                    _env_sec     = rec["section"]
+                    try:
+                        _env_d_mm = float(
+                            rec["dims"].replace("d=", "").split()[0].split("x")[0]
+                        )
+                    except (ValueError, IndexError):
+                        _env_d_mm = 30.0
+
+                    try:
+                        env_result = evaluate_envelope(
+                            material_key=_env_mat_key,
+                            section_type=_env_sec,
+                            d_mm=_env_d_mm,
+                            load_cases=env_cases_input,
+                            fos_target=float(fos_target),
+                            deflection_limit=float(deflection_limit) if deflection_limit else None,
+                        )
+                        st.session_state["env_result"] = env_result
+                        st.session_state["env_cases_snapshot"] = env_cases_input
+                    except Exception as _env_err:
+                        st.error(f"Envelope error: {_env_err}")
+
+                # Show results if available
+                if "env_result" in st.session_state and st.session_state["env_result"] is not None:
+                    env_r = st.session_state["env_result"]
+
+                    safe_badge = (
+                        '<span class="badge badge-safe">ALL SAFE</span>'
+                        if env_r.all_safe
+                        else '<span class="badge badge-unsafe">NOT ALL SAFE</span>'
+                    )
+
+                    st.markdown(
+                        f'<div style="margin:10px 0 8px;display:flex;'
+                        f'align-items:center;gap:12px;">'
+                        f'<span style="font-size:0.9rem;font-weight:700;color:var(--text);">'
+                        f'Governing: {env_r.governing_case}</span>'
+                        f'{safe_badge}'
+                        f'</div>',
+                        unsafe_allow_html=True,
+                    )
+
+                    _env_gov_fos_color = "#34d399" if env_r.governing_fos >= fos_target else "#f87171"
+                    env_g1, env_g2, env_g3 = st.columns(3)
+                    env_g1.metric(
+                        "Governing FoS",
+                        f"{env_r.governing_fos:.3f}",
+                        delta=f"{env_r.governing_fos - fos_target:+.2f} vs target",
+                        delta_color="normal" if env_r.governing_fos >= fos_target else "inverse",
+                    )
+                    _env_gov_stress = convert_output(env_r.governing_stress, "stress", US)
+                    env_g2.metric(
+                        f"Governing stress ({unit_label('stress', US)})",
+                        f"{_env_gov_stress:.1f}",
+                    )
+                    _env_gov_defl = convert_output(env_r.governing_deflection, "deflection", US)
+                    env_g3.metric(
+                        f"Peak deflection ({_lbl_defl})",
+                        f"{_env_gov_defl:.3f}",
+                    )
+
+                    # Per-case summary table
+                    _env_str_lbl = unit_label("stress", US)
+                    env_tbl = '<table class="mt" style="margin-top:12px;"><thead><tr>'
+                    env_tbl += (
+                        f'<th>Load case</th>'
+                        f'<th class="n">Load ({_lbl_frc})</th>'
+                        f'<th class="n">Length ({_lbl_len})</th>'
+                        f'<th class="n">FoS</th>'
+                        f'<th class="n">Stress ({_env_str_lbl})</th>'
+                        f'<th class="n">Deflection ({_lbl_defl})</th>'
+                        f'<th>Status</th>'
+                    )
+                    env_tbl += '</tr></thead><tbody>'
+                    for _ec in env_r.cases:
+                        _ec_safe = _ec.fos >= fos_target
+                        if deflection_limit:
+                            _ec_safe = _ec_safe and (_ec.deflection <= deflection_limit)
+                        _ec_row_cls  = "row-safe" if _ec_safe else "row-fail"
+                        _ec_dot_col  = "#34d399" if _ec_safe else "#f87171"
+                        _is_gov      = (_ec.load_case == env_r.governing_case)
+                        _gov_style   = ' style="font-weight:700;"' if _is_gov else ''
+                        _ec_load_d   = convert_output(_ec.load,       "force",      US)
+                        _ec_len_d    = convert_output(_ec.length,     "length",     US)
+                        _ec_stress_d = convert_output(_ec.stress,     "stress",     US)
+                        _ec_defl_d   = convert_output(_ec.deflection, "deflection", US)
+                        env_tbl += (
+                            f'<tr class="{_ec_row_cls}">'
+                            f'<td{_gov_style}>'
+                            f'{"&#9654; " if _is_gov else ""}{_ec.load_case}'
+                            f'{"  (governing)" if _is_gov else ""}</td>'
+                            f'<td class="n">{_ec_load_d:.1f}</td>'
+                            f'<td class="n">{_ec_len_d:.3f}</td>'
+                            f'<td class="n">{_ec.fos:.3f}</td>'
+                            f'<td class="n">{_ec_stress_d:.1f}</td>'
+                            f'<td class="n">{_ec_defl_d:.4f}</td>'
+                            f'<td><span style="display:inline-block;width:8px;height:8px;'
+                            f'border-radius:50%;background:{_ec_dot_col};"></span></td>'
+                            f'</tr>'
+                        )
+                    env_tbl += '</tbody></table>'
+                    st.markdown(env_tbl, unsafe_allow_html=True)
+
+                    # Summary callout
+                    callout_cls = "callout-green" if env_r.all_safe else "callout-amber"
+                    st.markdown(
+                        f'<div class="callout {callout_cls}" style="margin-top:10px;">'
+                        f'{env_r.summary}'
+                        f'</div>',
+                        unsafe_allow_html=True,
+                    )
 
         # 3. Why-not summary (why rejected designs failed) ───────────────────
         if n_total > n_safe:

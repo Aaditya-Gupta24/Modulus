@@ -277,6 +277,21 @@ function buildSVG(section, dims, safe) {
   svg += '<line x1="' + (MARGIN - 10) + '" y1="' + naY + '" x2="' + (SVG_W - MARGIN + 10) + '" y2="' + naY + '" stroke="#333850" stroke-width="1" stroke-dasharray="2,4"/>';
   svg += '<text x="' + (MARGIN - 14) + '" y="' + (naY + 3) + '" fill="#333850" font-size="8" text-anchor="end" font-family="monospace">NA</text>';
 
+  // I-contribution gradient overlay: material far from NA contributes more to I
+  // y² weighting means top/bottom flanges are most efficient
+  var gradId = 'iGrad';
+  svg += '<defs><linearGradient id="' + gradId + '" x1="0" y1="0" x2="0" y2="1">';
+  svg += '<stop offset="0%" stop-color="#4a9eff" stop-opacity="0.18"/>';
+  svg += '<stop offset="40%" stop-color="#4a9eff" stop-opacity="0.03"/>';
+  svg += '<stop offset="50%" stop-color="#4a9eff" stop-opacity="0.0"/>';
+  svg += '<stop offset="60%" stop-color="#4a9eff" stop-opacity="0.03"/>';
+  svg += '<stop offset="100%" stop-color="#4a9eff" stop-opacity="0.18"/>';
+  svg += '</linearGradient></defs>';
+
+  // Teaching annotation: I = ∫y²dA — material far from NA is efficient
+  svg += '<text x="' + (SVG_W - 4) + '" y="14" fill="#4a6a90" font-size="8" text-anchor="end" font-family="SF Mono,Cascadia Code,Consolas,monospace" opacity="0.7">I = \u222By\u00B2dA</text>';
+  svg += '<text x="' + (SVG_W - 4) + '" y="24" fill="#3a5a78" font-size="7" text-anchor="end" font-family="sans-serif" opacity="0.6">far from NA = efficient</text>';
+
   switch (section) {
     case "rectangle":      svg += svgRectangle(dims, strokeColor, fillColor); break;
     case "circle":         svg += svgCircle(dims, strokeColor, fillColor); break;
@@ -328,6 +343,8 @@ function svgRectangle(dims, stroke, fill) {
   var x0 = (SVG_W - rw) / 2, y0 = (SVG_H - rh) / 2;
 
   var s = '<rect x="' + x0 + '" y="' + y0 + '" width="' + rw + '" height="' + rh + '" fill="' + fill + '" stroke="' + stroke + '" stroke-width="2" rx="1"/>';
+  // I-contribution overlay (y² gradient — brighter at top/bottom)
+  s += '<rect x="' + x0 + '" y="' + y0 + '" width="' + rw + '" height="' + rh + '" fill="url(#iGrad)" rx="1"/>';
   s += dimArrow(x0, y0 + rh + 16, x0 + rw, y0 + rh + 16);
   s += dimLabel(x0 + rw/2, y0 + rh + 30, 'b=' + mm(b));
   s += dimArrow(x0 + rw + 16, y0, x0 + rw + 16, y0 + rh);
