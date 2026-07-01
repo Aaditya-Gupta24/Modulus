@@ -359,15 +359,23 @@ function BeamPreviewSVG({ loadCase, load, length }: BeamPreviewProps) {
     );
   }
 
-  // Fixed wall (cantilever left)
+  // Fixed wall (cantilever left) — hatched rectangle + bold face line
   function fixedWall(): React.ReactNode {
     return (
       <g>
-        <rect x={beamX0 - 14} y={beamY - 20} width={14} height={40} fill="var(--bg-panel-2)" stroke="var(--stroke)" strokeWidth="1.5" />
-        {[0, 8, 16, 24, 32].map(dy => (
-          <line key={dy} x1={beamX0 - 14} y1={beamY - 20 + dy} x2={beamX0 - 22} y2={beamY - 20 + dy + 8}
-            stroke="var(--stroke)" strokeWidth="1" />
-        ))}
+        <defs>
+          <pattern id="beam-wall-hatch" width="8" height="8"
+            patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+            <line x1="0" y1="0" x2="0" y2="8" stroke="var(--stroke)" strokeWidth="2.5" />
+          </pattern>
+        </defs>
+        <rect x={beamX0 - 18} y={beamY - 28} width={18} height={56}
+          fill="url(#beam-wall-hatch)" rx="2" />
+        <rect x={beamX0 - 18} y={beamY - 28} width={18} height={56}
+          fill="var(--bg-panel-2)" opacity="0.5" rx="2" />
+        {/* Bold wall face */}
+        <line x1={beamX0} y1={beamY - 28} x2={beamX0} y2={beamY + 28}
+          stroke="var(--text-mid)" strokeWidth="2.5" />
       </g>
     );
   }
@@ -417,6 +425,9 @@ function BeamPreviewSVG({ loadCase, load, length }: BeamPreviewProps) {
     );
   }
 
+  // Load case title
+  const lcTitle = loadCase.replace(/_/g, ' ').toUpperCase();
+
   return (
     <svg
       className="beam-preview-svg"
@@ -426,19 +437,38 @@ function BeamPreviewSVG({ loadCase, load, length }: BeamPreviewProps) {
       {/* Background */}
       <rect width={W} height={H} rx="10" fill="var(--bg-panel-2)" />
 
-      {/* Grid lines */}
+      {/* Grid lines — subtle horizontal dashes */}
       {[40, 80, 120, 160].map(y => (
         <line key={y} x1={0} y1={y} x2={W} y2={y}
-          stroke="var(--stroke-soft)" strokeWidth="0.5" />
+          stroke="var(--stroke-soft)" strokeWidth="0.5" strokeDasharray="4 6" opacity="0.4" />
       ))}
 
-      {/* Deflection curve (dashed) */}
+      {/* Title label */}
+      <text x={14} y={18} fontSize="9" fill="var(--text-low)"
+        fontFamily="Inter, sans-serif" fontWeight="600" letterSpacing="2" opacity="0.7">
+        {lcTitle}
+      </text>
+
+      {/* Deflection curve (dashed cyan) */}
       <path d={deflPath()} fill="none" stroke="var(--cyan)" strokeWidth="1.5"
-        strokeDasharray="5 3" opacity="0.55" />
+        strokeDasharray="6 4" opacity="0.55" />
+
+      {/* Deflection label */}
+      <text
+        x={isCantilever ? beamX1 + 6 : beamX0 + beamLen / 2}
+        y={isCantilever ? beamY + deflAmt + 4 : beamY + deflAmt + 12}
+        fontSize="10" fill="var(--cyan)" opacity="0.65"
+        fontFamily="JetBrains Mono, monospace"
+        textAnchor={isCantilever ? 'start' : 'middle'}
+      >
+        {'δ'}
+        <tspan fontSize="7" dy="3">max</tspan>
+      </text>
 
       {/* Beam body */}
       <rect x={beamX0} y={beamY - 8} width={beamLen} height={16}
-        rx="2" fill="var(--bg-panel)" stroke="var(--stroke)" strokeWidth="1.5" />
+        rx="3" fill="var(--bg-panel)" stroke="var(--text-mid)" strokeWidth="1.8"
+        opacity="0.85" />
 
       {/* Supports */}
       {isCantilever ? fixedWall() : (
@@ -461,13 +491,28 @@ function BeamPreviewSVG({ loadCase, load, length }: BeamPreviewProps) {
         x={isUDL ? (beamX0 + beamX1) / 2 : (isCantilever ? beamX1 : beamX0 + beamLen / 2)}
         y={isUDL ? beamY - 44 : beamY - arrowH - 8}
         textAnchor="middle" fontSize="11" fill="var(--accent)"
-        fontFamily="JetBrains Mono, monospace"
+        fontFamily="JetBrains Mono, monospace" fontWeight="600"
       >
         {isUDL ? `q = ${(load / length).toFixed(0)} N/m` : `P = ${load} N`}
       </text>
 
       {/* Dimension line */}
       {dimensionLine()}
+
+      {/* Stress gradient bar */}
+      <defs>
+        <linearGradient id="beam-stress-grad" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0%" stopColor="var(--cyan)" stopOpacity="0.6" />
+          <stop offset="50%" stopColor="#FBBF24" stopOpacity="0.6" />
+          <stop offset="100%" stopColor="var(--accent)" stopOpacity="0.8" />
+        </linearGradient>
+      </defs>
+      <rect x={beamX0} y={H - 22} width={beamLen} height={4} rx="2"
+        fill="url(#beam-stress-grad)" />
+      <text x={beamX0} y={H - 10} fontSize="7" fill="var(--cyan)" opacity="0.5"
+        fontFamily="JetBrains Mono, monospace">LOW {'σ'}</text>
+      <text x={beamX1 - 30} y={H - 10} fontSize="7" fill="var(--accent)" opacity="0.5"
+        fontFamily="JetBrains Mono, monospace">HIGH {'σ'}</text>
     </svg>
   );
 }

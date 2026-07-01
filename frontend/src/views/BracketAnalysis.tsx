@@ -392,6 +392,18 @@ function BracketSVG({
         </filter>
       </defs>
 
+      {/* ── Grid lines — subtle dashed horizontals ── */}
+      {Array.from({ length: Math.floor(H / 50) }, (_, i) => (
+        <line key={`grid-${i}`} x1={0} y1={i * 50} x2={W} y2={i * 50}
+          stroke="var(--stroke-soft)" strokeWidth="0.5" strokeDasharray="4 6" opacity="0.3" />
+      ))}
+
+      {/* ── Title label ── */}
+      <text x={14} y={18} fontSize="9" fill="var(--text-low)"
+        fontFamily="Inter, sans-serif" fontWeight="600" letterSpacing="2" opacity="0.7">
+        BRACKET — BOLT GROUP + GUSSET
+      </text>
+
       {/* ── Wall ── */}
       <rect
         x={wallX - wallThick}
@@ -542,6 +554,22 @@ function BracketSVG({
           {GUSSET_OPTIONS.find(g => g.id === gussetType)?.label ?? ''}
         </text>
       )}
+
+      {/* ── Legend ── */}
+      <g transform={`translate(14, ${H - 22})`}>
+        {[
+          { label: 'Plate', color: 'var(--text-mid)' },
+          { label: 'Bolts', color: 'var(--accent)' },
+          { label: 'Gusset', color: 'var(--cyan)' },
+          { label: 'Load', color: 'var(--fail)' },
+        ].map((item, i) => (
+          <g key={item.label} transform={`translate(${i * 80}, 0)`}>
+            <circle cx={4} cy={5} r={4} fill={item.color} />
+            <text x={14} y={9} fontSize="9" fill="var(--text-mid)"
+              fontFamily="Inter, sans-serif">{item.label}</text>
+          </g>
+        ))}
+      </g>
     </svg>
   );
 }
