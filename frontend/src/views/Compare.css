@@ -1,0 +1,160 @@
+/* Compare view styles */
+
+/* Winner cards — ghost state until data arrives */
+.compare__winner-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-height: 200px;
+}
+
+.compare__winner-label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-low);
+}
+
+.compare__winner-main {
+  font-family: var(--font-mono);
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--text-hi);
+  line-height: 1.4;
+  flex: 1;
+}
+
+.compare__winner-metric {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--accent);
+  letter-spacing: -0.5px;
+}
+
+.compare__winner-unit {
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--text-low);
+  margin-left: 4px;
+}
+
+.compare__winner-ghost {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+  flex: 1;
+  opacity: 0.4;
+  padding: var(--space-6) 0;
+  text-align: center;
+}
+
+.compare__winner-ghost-icon {
+  font-size: 28px;
+}
+
+.compare__winner-ghost-text {
+  font-size: 12px;
+  color: var(--text-low);
+  line-height: 1.5;
+  max-width: 140px;
+}
+
+/* Materials sub-tab */
+.compare__mat-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-right: var(--space-2);
+  vertical-align: middle;
+  flex-shrink: 0;
+}
+
+.compare__mat-cell {
+  display: flex;
+  align-items: center;
+}
+
+/* Tradeoff placeholder */
+.compare__tradeoff-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-4);
+  min-height: 320px;
+  border: 1px dashed var(--stroke);
+  border-radius: var(--r-panel);
+  padding: var(--space-8);
+  position: relative;
+}
+
+/* Axis lines suggestion */
+.compare__tradeoff-axes {
+  position: absolute;
+  inset: var(--space-8);
+  pointer-events: none;
+}
+
+.compare__tradeoff-axis-x,
+.compare__tradeoff-axis-y {
+  position: absolute;
+  background: var(--stroke);
+}
+
+.compare__tradeoff-axis-x {
+  bottom: 24px;
+  left: 24px;
+  right: 24px;
+  height: 1px;
+}
+
+.compare__tradeoff-axis-y {
+  top: 24px;
+  bottom: 24px;
+  left: 24px;
+  width: 1px;
+}
+
+.compare__tradeoff-axis-label {
+  font-size: 10px;
+  font-family: var(--font-mono);
+  color: var(--text-low);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  opacity: 0.6;
+}
+
+.compare__tradeoff-axis-label--x {
+  position: absolute;
+  bottom: 4px;
+  right: 24px;
+}
+
+.compare__tradeoff-axis-label--y {
+  position: absolute;
+  top: 24px;
+  left: 28px;
+}
+
+.compare__tradeoff-hint {
+  font-size: 13px;
+  color: var(--text-low);
+  text-align: center;
+  max-width: 360px;
+  line-height: 1.6;
+  position: relative;
+  z-index: 1;
+}
+
+.compare__tradeoff-icon {
+  font-size: 32px;
+  opacity: 0.3;
+  position: relative;
+  z-index: 1;
+}

@@ -1,0 +1,91 @@
+/* ===== MarginMeter ===== */
+
+.margin-meter {
+  position: relative;
+  width: 100%;
+  height: 6px;
+  background: var(--bg-panel-2);
+  border-radius: var(--r-pill);
+  overflow: hidden;
+}
+
+/* Not-modeled: no fill, dashed border, no overflow clip so dashes show */
+.margin-meter--not-modeled {
+  overflow: visible;
+  background: transparent;
+  border: 1.5px dashed rgba(251, 191, 36, 0.35);
+}
+
+/* Bipolar container (for negative margins) shows a center baseline */
+.margin-meter--bipolar {
+  overflow: visible;
+}
+
+.margin-meter__center-line {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  width: 1px;
+  height: 100%;
+  background: var(--stroke);
+  transform: translateX(-50%);
+  z-index: 1;
+}
+
+/* ---- Fill bar ---- */
+
+.margin-meter__fill {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  width: 0%;
+  border-radius: var(--r-pill);
+  transition: width var(--dur-base) var(--ease-out);
+}
+
+/* Animated fill: expands from 0 to --fill-target */
+.margin-meter__fill--animate {
+  width: var(--fill-target, 0%);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .margin-meter__fill {
+    transition: none;
+    width: var(--fill-target, 0%);
+  }
+}
+
+/* Negative fill: anchored to the right of the left half, grows leftward */
+.margin-meter__fill--negative {
+  left: auto;
+  right: 50%;
+  background: var(--fail);
+  box-shadow: 0 0 8px rgba(248, 113, 113, 0.35);
+  border-radius: var(--r-pill) 0 0 var(--r-pill);
+}
+
+.margin-meter__fill--negative.margin-meter__fill--animate {
+  width: var(--fill-target, 0%);
+}
+
+/* ---- Status-colored fills ---- */
+
+.margin-meter--pass .margin-meter__fill {
+  background: var(--pass);
+  box-shadow: 0 0 8px rgba(52, 211, 153, 0.3);
+}
+
+.margin-meter--warn .margin-meter__fill {
+  background: var(--warn);
+  box-shadow: 0 0 8px rgba(251, 191, 36, 0.3);
+}
+
+.margin-meter--fail .margin-meter__fill {
+  background: var(--fail);
+  box-shadow: 0 0 8px rgba(248, 113, 113, 0.35);
+}
+
+.margin-meter--neutral .margin-meter__fill {
+  background: var(--neutral);
+}

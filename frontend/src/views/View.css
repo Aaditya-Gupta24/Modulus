@@ -1,0 +1,173 @@
+/* Shared view layout styles */
+
+.view {
+  padding: var(--space-8) var(--space-8);
+  max-width: 1280px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+.view__header {
+  margin-bottom: var(--space-8);
+}
+
+.view__title {
+  font-family: var(--font-display);
+  font-size: 26px;
+  font-weight: 700;
+  color: var(--text-hi);
+  letter-spacing: -0.5px;
+  margin-top: var(--space-1);
+  margin-bottom: var(--space-2);
+}
+
+.view__subtitle {
+  font-size: 14px;
+  color: var(--text-mid);
+  line-height: 1.5;
+}
+
+/* Grids */
+
+.view__grid {
+  display: grid;
+  gap: var(--space-4);
+  margin-bottom: var(--space-6);
+}
+
+.view__grid--2 {
+  grid-template-columns: repeat(2, 1fr);
+}
+
+.view__grid--3 {
+  grid-template-columns: repeat(3, 1fr);
+}
+
+.view__grid--4 {
+  grid-template-columns: repeat(4, 1fr);
+}
+
+@media (max-width: 900px) {
+  .view__grid--3,
+  .view__grid--4 {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 600px) {
+  .view {
+    padding: var(--space-6) var(--space-4);
+  }
+
+  .view__grid--2,
+  .view__grid--3,
+  .view__grid--4 {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Metric block inside a panel */
+
+.view__metric {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.view__metric-value {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 18px;
+  font-weight: 500;
+  color: var(--text-hi);
+  letter-spacing: -0.3px;
+}
+
+/* --- Sub-tab (segmented pill) --- */
+
+.view__subtabs {
+  display: flex;
+  gap: 2px;
+  background: var(--bg-panel-2);
+  padding: 3px;
+  border-radius: var(--r-pill);
+  border: 1px solid var(--stroke);
+  width: fit-content;
+  margin-bottom: var(--space-8);
+}
+
+.view__subtab {
+  padding: 6px 18px;
+  border: none;
+  border-radius: var(--r-pill);
+  background: transparent;
+  color: var(--text-mid);
+  font-family: var(--font-ui);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+  transition:
+    background var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out),
+    box-shadow var(--dur-fast) var(--ease-out);
+}
+
+.view__subtab:hover {
+  color: var(--text-hi);
+}
+
+.view__subtab--active {
+  background: var(--accent);
+  color: #fff;
+  box-shadow: 0 0 12px rgba(59, 130, 246, 0.35);
+}
+
+.view__subtab--active:hover {
+  color: #fff;
+}
+
+/* --- Placeholder state --- */
+
+.view__placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-4);
+  min-height: 240px;
+  background: var(--bg-panel);
+  border: 1px dashed var(--stroke);
+  border-radius: var(--r-panel);
+  color: var(--text-low);
+  text-align: center;
+  padding: var(--space-8);
+}
+
+.view__placeholder-icon {
+  font-size: 36px;
+  opacity: 0.35;
+}
+
+.view__placeholder p {
+  font-size: 14px;
+  max-width: 420px;
+  line-height: 1.6;
+}
+
+/* --- Tab content area --- */
+
+.view__tab-content {
+  animation: tab-in var(--dur-base) var(--ease-out) both;
+}
+
+@keyframes tab-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .view__tab-content {
+    animation: none;
+  }
+}

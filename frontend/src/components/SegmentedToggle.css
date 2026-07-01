@@ -1,0 +1,81 @@
+/* ===== SegmentedToggle ===== */
+/* Mirrors .view__subtabs from View.css but smaller: 11px font, tighter padding */
+
+.seg-toggle {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.seg-toggle__label {
+  display: block;
+  /* Uses global .overline: 11px, Inter 600, uppercase, --text-low */
+}
+
+.seg-toggle__track {
+  display: inline-flex;
+  gap: 2px;
+  background: var(--bg-panel-2);
+  padding: 3px;
+  border-radius: var(--r-pill);
+  border: 1px solid var(--stroke);
+  width: fit-content;
+}
+
+/* ---- Option button ---- */
+
+.seg-toggle__option {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 12px;
+  border: none;
+  border-radius: var(--r-pill);
+  background: transparent;
+  color: var(--text-mid);
+  font-family: var(--font-ui);
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+  user-select: none;
+  transition:
+    background var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out),
+    box-shadow var(--dur-fast) var(--ease-out);
+}
+
+.seg-toggle__option:hover:not(.seg-toggle__option--active) {
+  color: var(--text-hi);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.seg-toggle__option--active {
+  background: var(--accent);
+  color: #ffffff;
+  box-shadow: 0 0 10px rgba(59, 130, 246, 0.30);
+}
+
+.seg-toggle__option--active:hover {
+  color: #ffffff;
+}
+
+/* ---- Icon + text ---- */
+
+.seg-toggle__icon {
+  font-size: 12px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.seg-toggle__text {
+  line-height: 1;
+}
+
+/* ---- Reduced motion ---- */
+
+@media (prefers-reduced-motion: reduce) {
+  .seg-toggle__option {
+    transition: none;
+  }
+}

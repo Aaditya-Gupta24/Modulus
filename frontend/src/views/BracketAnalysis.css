@@ -1,0 +1,715 @@
+/* =========================================================
+   BracketAnalysis.css
+   Prefix: bracket-
+   All layout, component, and animation styles for the
+   Bracket Analysis view. Design tokens come from tokens.css.
+   ========================================================= */
+
+/* ─── Setup layout ──────────────────────────────────────── */
+
+.bracket-setup {
+  display: grid;
+  grid-template-columns: minmax(360px, 440px) 1fr;
+  gap: var(--space-6);
+  align-items: start;
+}
+
+@media (max-width: 1000px) {
+  .bracket-setup {
+    grid-template-columns: 1fr;
+  }
+  .bracket-setup__preview {
+    order: -1;   /* SVG above controls on narrow viewports */
+  }
+}
+
+.bracket-setup__controls {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.bracket-setup__preview {
+  position: sticky;
+  top: var(--space-6);
+}
+
+/* ─── Field helpers ─────────────────────────────────────── */
+
+.bracket-field-stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.bracket-row-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-4);
+}
+
+.bracket-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.bracket-field__label {
+  display: block;
+}
+
+.bracket-field-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+/* ─── Gusset selector tiles ─────────────────────────────── */
+
+.bracket-gusset-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
+}
+
+@media (max-width: 700px) {
+  .bracket-gusset-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+.bracket-gusset-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  padding: var(--space-2);
+  background: var(--bg-panel-2);
+  border: 1.5px solid var(--stroke);
+  border-radius: var(--r-card);
+  cursor: pointer;
+  transition:
+    border-color var(--dur-fast) var(--ease-out),
+    box-shadow   var(--dur-fast) var(--ease-out),
+    background   var(--dur-fast) var(--ease-out);
+}
+
+.bracket-gusset-tile:hover {
+  border-color: var(--text-low);
+}
+
+.bracket-gusset-tile--active {
+  border-color: var(--accent);
+  background: rgba(59, 130, 246, 0.07);
+  box-shadow: 0 0 14px rgba(59, 130, 246, 0.22);
+}
+
+.bracket-gusset-tile__label {
+  font-family: var(--font-ui);
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-mid);
+  text-align: center;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.bracket-gusset-tile--active .bracket-gusset-tile__label {
+  color: var(--text-hi);
+}
+
+.bracket-gusset-diag {
+  width: 100%;
+  max-width: 64px;
+  height: 48px;
+  display: block;
+}
+
+.bracket-gusset-params {
+  margin-top: var(--space-4);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--stroke);
+  animation: bracket-param-in var(--dur-base) var(--ease-out) both;
+}
+
+@keyframes bracket-param-in {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bracket-gusset-params {
+    animation: none;
+  }
+}
+
+/* ─── Run button ────────────────────────────────────────── */
+
+.bracket-run-btn {
+  width: 100%;
+  padding: 13px var(--space-6);
+  background: var(--accent);
+  border: none;
+  border-radius: var(--r-control);
+  color: #fff;
+  font-family: var(--font-ui);
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  box-shadow: 0 0 20px rgba(59, 130, 246, 0.3);
+  transition:
+    opacity      var(--dur-fast) var(--ease-out),
+    box-shadow   var(--dur-fast) var(--ease-out),
+    transform    var(--dur-fast) var(--ease-out);
+  margin-top: var(--space-2);
+}
+
+.bracket-run-btn:hover:not(:disabled) {
+  box-shadow: 0 0 30px rgba(59, 130, 246, 0.55);
+  transform: translateY(-1px);
+}
+
+.bracket-run-btn:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.bracket-run-btn--loading {
+  opacity: 0.82;
+}
+
+.bracket-run-btn__spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: bracket-spin 0.7s linear infinite;
+  flex-shrink: 0;
+}
+
+@keyframes bracket-spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bracket-run-btn__spinner {
+    animation: none;
+    opacity: 0.6;
+  }
+  .bracket-run-btn:hover:not(:disabled) {
+    transform: none;
+  }
+}
+
+/* ─── Error panel ───────────────────────────────────────── */
+
+.bracket-error {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  background: rgba(248, 113, 113, 0.08);
+  border: 1px solid rgba(248, 113, 113, 0.35);
+  border-radius: var(--r-control);
+}
+
+.bracket-error__icon {
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--fail);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+
+.bracket-error__msg {
+  font-size: 13px;
+  color: var(--fail);
+  line-height: 1.5;
+}
+
+/* ─── Tab lock dot ──────────────────────────────────────── */
+
+.bracket-tab-lock {
+  display: inline-block;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--text-low);
+  margin-left: 5px;
+  vertical-align: middle;
+  opacity: 0.5;
+}
+
+/* ─── Bracket SVG panel ─────────────────────────────────── */
+
+.bracket-svg-panel .panel__body {
+  padding: var(--space-4);
+}
+
+.bracket-svg {
+  width: 100%;
+  display: block;
+  border-radius: var(--r-card);
+  background: var(--bg-base);
+  min-height: 200px;
+}
+
+/* Smooth geometry transitions on SVG elements */
+.bracket-svg .bracket-svg__arm,
+.bracket-svg .bracket-svg__bolt,
+.bracket-svg .bracket-svg__gusset,
+.bracket-svg .bracket-svg__load-arrow {
+  transition:
+    d          var(--dur-base) var(--ease-io),
+    transform  var(--dur-base) var(--ease-io),
+    opacity    var(--dur-base) var(--ease-io);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bracket-svg .bracket-svg__arm,
+  .bracket-svg .bracket-svg__bolt,
+  .bracket-svg .bracket-svg__gusset,
+  .bracket-svg .bracket-svg__load-arrow {
+    transition: none;
+  }
+}
+
+/* Legend below SVG */
+.bracket-svg-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+  margin-top: var(--space-3);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--stroke);
+}
+
+.bracket-svg-legend__item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--text-low);
+  font-family: var(--font-ui);
+}
+
+.bracket-svg-legend__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.bracket-svg-legend__dot--plate  { background: var(--text-mid); }
+.bracket-svg-legend__dot--bolt   { background: var(--accent); }
+.bracket-svg-legend__dot--gusset { background: var(--cyan); }
+.bracket-svg-legend__dot--load   { background: var(--fail); }
+
+/* ─── Results layout ────────────────────────────────────── */
+
+.bracket-results {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+/* ─── Metric block ──────────────────────────────────────── */
+
+.bracket-metric {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.bracket-metric__label {
+  /* .overline class applied in JSX */
+}
+
+.bracket-metric__value {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 16px;
+  font-weight: 500;
+  color: var(--text-hi);
+  line-height: 1.2;
+  transition: color var(--dur-fast) var(--ease-out);
+}
+
+.bracket-metric__value--large {
+  font-size: 26px;
+  font-weight: 600;
+  letter-spacing: -0.5px;
+  text-shadow: 0 0 18px currentColor;
+}
+
+.bracket-metric__unit {
+  font-size: 12px;
+  color: var(--text-low);
+  font-weight: 400;
+}
+
+/* ─── Overall FoS hero ──────────────────────────────────── */
+
+.bracket-overall-hero {
+  position: relative;
+  background: var(--bg-panel);
+  border-radius: var(--r-panel);
+  border: 1px solid var(--stroke);
+  overflow: hidden;
+  animation: bracket-hero-in var(--dur-slow) var(--ease-out) both;
+}
+
+@keyframes bracket-hero-in {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bracket-overall-hero {
+    animation: none;
+  }
+}
+
+.bracket-overall-hero__strip {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 4px;
+  height: 100%;
+  border-radius: var(--r-panel) 0 0 var(--r-panel);
+}
+
+.bracket-overall-hero--pass .bracket-overall-hero__strip { background: var(--pass); box-shadow: 0 0 12px var(--pass); }
+.bracket-overall-hero--warn .bracket-overall-hero__strip { background: var(--warn); box-shadow: 0 0 12px var(--warn); }
+.bracket-overall-hero--fail .bracket-overall-hero__strip { background: var(--fail); box-shadow: 0 0 12px var(--fail); }
+.bracket-overall-hero--neutral .bracket-overall-hero__strip { background: var(--neutral); }
+
+.bracket-overall-hero__body {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-6);
+  padding: var(--space-6) var(--space-6) var(--space-6) calc(var(--space-6) + 4px);
+  flex-wrap: wrap;
+}
+
+.bracket-overall-hero__left {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.bracket-overall-hero__fos {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 48px;
+  font-weight: 700;
+  letter-spacing: -1px;
+  line-height: 1;
+  color: var(--text-hi);
+}
+
+.bracket-overall-hero--pass .bracket-overall-hero__fos { color: var(--pass); text-shadow: 0 0 28px rgba(52, 211, 153, 0.5); }
+.bracket-overall-hero--warn .bracket-overall-hero__fos { color: var(--warn); text-shadow: 0 0 28px rgba(251, 191, 36, 0.4); }
+.bracket-overall-hero--fail .bracket-overall-hero__fos { color: var(--fail); text-shadow: 0 0 28px rgba(248, 113, 113, 0.45); }
+
+.bracket-overall-hero__controlling {
+  font-size: 13px;
+  color: var(--text-low);
+  line-height: 1.4;
+}
+
+.bracket-overall-hero__controlling strong {
+  color: var(--text-mid);
+  font-weight: 600;
+}
+
+.bracket-overall-hero__right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--space-3);
+  min-width: 200px;
+}
+
+@media (max-width: 600px) {
+  .bracket-overall-hero__body {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .bracket-overall-hero__right {
+    align-items: flex-start;
+    min-width: 0;
+    width: 100%;
+  }
+  .bracket-overall-hero__fos {
+    font-size: 36px;
+  }
+}
+
+/* ─── Bolt warnings chips ───────────────────────────────── */
+
+.bracket-bolt-warnings {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: var(--space-1);
+}
+
+.bracket-bolt-warn-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  background: rgba(251, 191, 36, 0.1);
+  border: 1px solid rgba(251, 191, 36, 0.35);
+  border-radius: var(--r-pill);
+  font-family: var(--font-ui);
+  font-size: 11px;
+  color: var(--warn);
+  line-height: 1.4;
+}
+
+/* ─── Gusset comparison table ───────────────────────────── */
+
+.bracket-gcomp-wrap {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.bracket-gcomp {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.bracket-gcomp__head {
+  /* applied on <tr> */
+}
+
+.bracket-gcomp__th {
+  padding: var(--space-2) var(--space-3);
+  text-align: left;
+  font-family: var(--font-ui);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: var(--text-low);
+  border-bottom: 1px solid var(--stroke);
+  white-space: nowrap;
+}
+
+.bracket-gcomp__row {
+  transition: background var(--dur-fast) var(--ease-out);
+}
+
+.bracket-gcomp__row:hover {
+  background: var(--bg-panel-2);
+}
+
+.bracket-gcomp__row--current {
+  background: rgba(59, 130, 246, 0.07);
+}
+
+.bracket-gcomp__row--current:hover {
+  background: rgba(59, 130, 246, 0.11);
+}
+
+.bracket-gcomp__row--unsafe td {
+  opacity: 0.65;
+}
+
+.bracket-gcomp__td {
+  padding: var(--space-2) var(--space-3);
+  color: var(--text-mid);
+  border-bottom: 1px solid var(--stroke-soft);
+  white-space: nowrap;
+  vertical-align: middle;
+}
+
+.bracket-gcomp__td--name {
+  color: var(--text-hi);
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.bracket-gcomp__td--mono {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 13px;
+}
+
+.bracket-gcomp__td--dim {
+  color: var(--text-low);
+}
+
+/* "Current" dot indicator */
+.bracket-gcomp__cur-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 6px rgba(59, 130, 246, 0.6);
+  flex-shrink: 0;
+}
+
+/* ─── Delta chips ───────────────────────────────────────── */
+
+.bracket-delta {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: var(--r-pill);
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 11px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.bracket-delta--good {
+  background: rgba(52, 211, 153, 0.12);
+  color: var(--pass);
+  border: 1px solid rgba(52, 211, 153, 0.25);
+}
+
+.bracket-delta--bad {
+  background: rgba(248, 113, 113, 0.10);
+  color: var(--fail);
+  border: 1px solid rgba(248, 113, 113, 0.22);
+}
+
+/* ─── Before / After hero ───────────────────────────────── */
+
+.bracket-before-after {
+  margin-top: var(--space-4);
+}
+
+.bracket-ba {
+  display: flex;
+  align-items: stretch;
+  gap: var(--space-6);
+  flex-wrap: wrap;
+}
+
+.bracket-ba__side {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 120px;
+}
+
+.bracket-ba__val {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--text-hi);
+  line-height: 1.1;
+}
+
+.bracket-ba__sub {
+  font-size: 11px;
+  color: var(--text-low);
+  line-height: 1;
+  margin-top: -2px;
+  margin-bottom: var(--space-1);
+}
+
+.bracket-ba__arrow {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  flex-shrink: 0;
+  padding: 0 var(--space-2);
+}
+
+.bracket-ba__arrow-label {
+  font-size: 11px;
+  color: var(--text-low);
+  font-family: var(--font-ui);
+  white-space: nowrap;
+}
+
+.bracket-ba__deltas {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  justify-content: center;
+  padding: var(--space-3) var(--space-4);
+  background: var(--bg-panel-2);
+  border: 1px solid var(--stroke);
+  border-radius: var(--r-card);
+  flex: 1;
+  min-width: 200px;
+}
+
+.bracket-ba__delta-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+}
+
+.bracket-ba__delta-label {
+  font-size: 12px;
+  color: var(--text-low);
+  font-family: var(--font-ui);
+}
+
+/* ─── Warning cards ─────────────────────────────────────── */
+
+.bracket-warn-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.bracket-warn-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.bracket-warn-card__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.bracket-warn-card__title {
+  font-family: var(--font-ui);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-hi);
+}
+
+.bracket-warn-card__body {
+  font-size: 13px;
+  color: var(--text-mid);
+  line-height: 1.6;
+}

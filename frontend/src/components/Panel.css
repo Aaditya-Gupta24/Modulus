@@ -1,0 +1,70 @@
+.panel {
+  position: relative;
+  background: var(--bg-panel);
+  border-radius: var(--r-panel);
+  box-shadow: var(--e2);
+  overflow: hidden;
+  transition:
+    transform var(--dur-fast) var(--ease-out),
+    box-shadow var(--dur-fast) var(--ease-out);
+}
+
+.panel:hover {
+  transform: translateY(-2px);
+  box-shadow:
+    0 0 0 1px var(--stroke),
+    0 12px 32px rgba(0, 0, 0, 0.55);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .panel:hover {
+    transform: none;
+  }
+}
+
+/* Status strip — 3px left edge bar */
+.panel__status-strip {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 3px;
+  height: 100%;
+  border-radius: var(--r-panel) 0 0 var(--r-panel);
+}
+
+.panel--pass .panel__status-strip { background: var(--pass); }
+.panel--warn .panel__status-strip { background: var(--warn); }
+.panel--fail .panel__status-strip { background: var(--fail); }
+.panel--neutral .panel__status-strip { background: var(--neutral); }
+
+/* Header */
+.panel__header {
+  padding: var(--space-4) var(--space-6) var(--space-2);
+}
+
+.panel--pass .panel__header,
+.panel--warn .panel__header,
+.panel--fail .panel__header,
+.panel--neutral .panel__header {
+  padding-left: calc(var(--space-6) + 3px);
+}
+
+.panel__title {
+  display: block;
+}
+
+/* Body */
+.panel__body {
+  padding: var(--space-4) var(--space-6) var(--space-6);
+}
+
+.panel--no-header .panel__body {
+  padding-top: var(--space-6);
+}
+
+.panel--pass .panel__body,
+.panel--warn .panel__body,
+.panel--fail .panel__body,
+.panel--neutral .panel__body {
+  padding-left: calc(var(--space-6) + 3px);
+}

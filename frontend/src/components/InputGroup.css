@@ -1,0 +1,117 @@
+/* ===== InputGroup ===== */
+
+.input-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+/* ---- Label ---- */
+
+.input-group__label {
+  /* Uses the global .label helper class: 13px, Inter 600, --text-mid */
+  cursor: default;
+}
+
+/* ---- Control row (input + unit suffix) ---- */
+
+.input-group__control {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+/* ---- Input ---- */
+
+.input-group__input {
+  width: 100%;
+  height: 34px;
+  padding: 0 var(--space-3);
+  background: var(--bg-panel-2);
+  border: 1px solid var(--stroke);
+  border-radius: var(--r-control);
+  color: var(--text-hi);
+  font-family: var(--font-ui);
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1;
+  appearance: none;
+  -webkit-appearance: none;
+  transition:
+    border-color var(--dur-fast) var(--ease-out),
+    box-shadow var(--dur-fast) var(--ease-out),
+    background var(--dur-fast) var(--ease-out);
+}
+
+/* Mono variant for number inputs */
+.input-group__input--mono {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+/* When a unit suffix is present, shrink the right padding to avoid overlap */
+.input-group__input--has-unit {
+  padding-right: 48px;
+}
+
+/* Hide browser spinner arrows */
+.input-group__input[type='number']::-webkit-inner-spin-button,
+.input-group__input[type='number']::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+.input-group__input[type='number'] {
+  -moz-appearance: textfield;
+}
+
+/* Placeholder */
+.input-group__input::placeholder {
+  color: var(--text-low);
+}
+
+/* Focus */
+.input-group__input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.18), var(--glow-accent);
+  background: var(--bg-panel-2);
+}
+
+/* Disabled */
+.input-group__input:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* ---- Unit suffix ---- */
+
+.input-group__unit {
+  position: absolute;
+  right: var(--space-3);
+  top: 50%;
+  transform: translateY(-50%);
+  font-family: var(--font-ui);
+  font-size: 12px;
+  color: var(--text-low);
+  pointer-events: none;
+  user-select: none;
+  white-space: nowrap;
+}
+
+/* ---- Helper text ---- */
+
+.input-group__helper {
+  font-family: var(--font-ui);
+  font-size: 11px;
+  color: var(--text-low);
+  line-height: 1.4;
+  margin: 0;
+}
+
+/* ---- Reduced motion ---- */
+
+@media (prefers-reduced-motion: reduce) {
+  .input-group__input {
+    transition: none;
+  }
+}

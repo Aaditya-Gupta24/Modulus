@@ -1,0 +1,250 @@
+/* Settings view styles */
+
+/* Unit system panel */
+.settings__unit-options {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-3);
+  margin-top: var(--space-2);
+}
+
+@media (max-width: 600px) {
+  .settings__unit-options {
+    grid-template-columns: 1fr;
+  }
+}
+
+.settings__unit-option {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-4);
+  background: var(--bg-panel-2);
+  border: 1px solid var(--stroke);
+  border-radius: var(--r-card);
+  cursor: pointer;
+  text-align: left;
+  transition:
+    border-color var(--dur-fast) var(--ease-out),
+    box-shadow var(--dur-fast) var(--ease-out);
+}
+
+.settings__unit-option:hover {
+  border-color: var(--stroke-soft);
+}
+
+.settings__unit-option--active {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent), 0 0 12px rgba(59, 130, 246, 0.18);
+}
+
+.settings__unit-option:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.settings__unit-name {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-hi);
+}
+
+.settings__unit-desc {
+  font-size: 11px;
+  font-family: var(--font-mono);
+  color: var(--text-low);
+  line-height: 1.5;
+}
+
+/* Toggle rows (Display panel) */
+.settings__toggle-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.settings__toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-6);
+  padding: var(--space-4) 0;
+  border-bottom: 1px solid var(--stroke-soft);
+}
+
+.settings__toggle-row:last-child {
+  border-bottom: none;
+}
+
+.settings__toggle-label {
+  flex: 1;
+}
+
+.settings__toggle-label-text {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-hi);
+  display: block;
+  margin-bottom: 3px;
+}
+
+.settings__toggle-label-text--disabled {
+  color: var(--text-low);
+}
+
+.settings__toggle-hint {
+  font-size: 12px;
+  color: var(--text-low);
+  line-height: 1.4;
+}
+
+/* Custom toggle switch */
+.settings__switch {
+  position: relative;
+  width: 38px;
+  height: 22px;
+  flex-shrink: 0;
+}
+
+.settings__switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+  position: absolute;
+}
+
+.settings__switch-track {
+  position: absolute;
+  inset: 0;
+  background: var(--bg-panel-2);
+  border: 1px solid var(--stroke);
+  border-radius: var(--r-pill);
+  transition: background var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out);
+  cursor: pointer;
+}
+
+.settings__switch input:checked + .settings__switch-track {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.settings__switch input:disabled + .settings__switch-track {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.settings__switch-track::after {
+  content: '';
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--text-low);
+  transition: transform var(--dur-fast) var(--ease-out), background var(--dur-fast) var(--ease-out);
+}
+
+.settings__switch input:checked + .settings__switch-track::after {
+  transform: translateX(16px);
+  background: #fff;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .settings__switch-track,
+  .settings__switch-track::after {
+    transition: none;
+  }
+}
+
+.settings__switch input:focus-visible + .settings__switch-track {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* API Connection panel */
+.settings__api-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.settings__api-status-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.settings__api-url {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--cyan);
+  background: var(--bg-panel-2);
+  border: 1px solid var(--stroke);
+  border-radius: var(--r-control);
+  padding: var(--space-2) var(--space-3);
+  display: block;
+}
+
+.settings__api-test-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 7px 16px;
+  background: var(--bg-panel-2);
+  border: 1px solid var(--stroke);
+  border-radius: var(--r-control);
+  color: var(--text-hi);
+  font-family: var(--font-ui);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition:
+    border-color var(--dur-fast) var(--ease-out),
+    background var(--dur-fast) var(--ease-out);
+}
+
+.settings__api-test-btn:hover {
+  border-color: var(--accent);
+  background: rgba(59, 130, 246, 0.08);
+}
+
+.settings__api-test-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* About panel */
+.settings__about-rows {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.settings__about-row {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-4);
+  font-size: 13px;
+}
+
+.settings__about-key {
+  color: var(--text-low);
+  font-weight: 500;
+  min-width: 120px;
+  flex-shrink: 0;
+}
+
+.settings__about-val {
+  color: var(--text-hi);
+}
+
+.settings__about-val--mono {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--cyan);
+}
+
+.settings__section-gap {
+  margin-bottom: var(--space-6);
+}

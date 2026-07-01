@@ -1,0 +1,888 @@
+/* =========================================================
+   BeamOptimizer.css
+   Prefix: beam-
+   All custom layout, component, and animation styles for
+   the Beam Optimizer view. Design tokens come from tokens.css.
+   ========================================================= */
+
+/* ─── Setup layout ─────────────────────────────────────── */
+
+.beam-setup {
+  display: grid;
+  grid-template-columns: minmax(360px, 420px) 1fr;
+  gap: var(--space-6);
+  align-items: start;
+}
+
+@media (max-width: 900px) {
+  .beam-setup {
+    grid-template-columns: 1fr;
+  }
+}
+
+.beam-setup__controls {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.beam-setup__preview {
+  position: sticky;
+  top: var(--space-6);
+}
+
+/* ─── InputGroup ────────────────────────────────────────── */
+
+.beam-input-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.beam-input-group__label {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.beam-input-group__unit {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-low);
+  background: var(--bg-panel-2);
+  border: 1px solid var(--stroke);
+  border-radius: var(--r-control);
+  padding: 1px 6px;
+  line-height: 1.6;
+}
+
+.beam-input-group__input {
+  width: 100%;
+  background: var(--bg-panel-2);
+  border: 1px solid var(--stroke);
+  border-radius: var(--r-control);
+  color: var(--text-hi);
+  font-family: var(--font-mono);
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+  padding: 8px 12px;
+  transition: border-color var(--dur-fast) var(--ease-out);
+  /* Remove browser spin buttons */
+  -moz-appearance: textfield;
+}
+
+.beam-input-group__input::-webkit-inner-spin-button,
+.beam-input-group__input::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.beam-input-group__input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+}
+
+.beam-input-group__helper {
+  font-size: 11px;
+  color: var(--text-low);
+  line-height: 1.4;
+}
+
+.beam-controls-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-4);
+  margin-bottom: var(--space-2);
+}
+
+/* ─── SegmentedToggle ───────────────────────────────────── */
+
+.beam-seg-toggle {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.beam-seg-toggle__label {
+  display: block;
+}
+
+.beam-seg-toggle__row {
+  display: flex;
+  gap: 2px;
+  background: var(--bg-panel-2);
+  padding: 3px;
+  border-radius: var(--r-pill);
+  border: 1px solid var(--stroke);
+  flex-wrap: wrap;
+}
+
+.beam-seg-toggle__btn {
+  flex: 1;
+  min-width: 70px;
+  padding: 6px 12px;
+  border: none;
+  border-radius: var(--r-pill);
+  background: transparent;
+  color: var(--text-mid);
+  font-family: var(--font-ui);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+  transition:
+    background var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out);
+  text-align: center;
+}
+
+.beam-seg-toggle__btn:hover {
+  color: var(--text-hi);
+}
+
+.beam-seg-toggle__btn--active {
+  background: var(--accent);
+  color: #fff;
+  box-shadow: 0 0 10px rgba(59, 130, 246, 0.3);
+}
+
+.beam-seg-toggle__btn--active:hover {
+  color: #fff;
+}
+
+/* ─── ChipSelector ──────────────────────────────────────── */
+
+.beam-chip-sel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.beam-chip-sel__label {
+  display: block;
+}
+
+.beam-chip-sel__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.beam-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 12px;
+  border-radius: var(--r-pill);
+  border: 1px solid var(--stroke);
+  background: var(--bg-panel-2);
+  color: var(--text-low);
+  font-family: var(--font-ui);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition:
+    border-color var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out),
+    background var(--dur-fast) var(--ease-out);
+  white-space: nowrap;
+}
+
+.beam-chip:hover {
+  color: var(--text-hi);
+  border-color: var(--text-low);
+}
+
+.beam-chip--active {
+  /* border-color and color come from inline style (per material color) */
+  background: rgba(59, 130, 246, 0.08);
+}
+
+.beam-chip__dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+/* ─── Load case tiles ───────────────────────────────────── */
+
+.beam-lc-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-2);
+}
+
+.beam-lc-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: var(--space-3) var(--space-2);
+  background: var(--bg-panel-2);
+  border: 1.5px solid var(--stroke);
+  border-radius: var(--r-card);
+  cursor: pointer;
+  transition:
+    border-color var(--dur-fast) var(--ease-out),
+    box-shadow var(--dur-fast) var(--ease-out);
+  text-align: center;
+}
+
+.beam-lc-tile:hover {
+  border-color: var(--text-low);
+}
+
+.beam-lc-tile--active {
+  border-color: var(--accent);
+  box-shadow: 0 0 12px rgba(59, 130, 246, 0.2);
+  background: rgba(59, 130, 246, 0.06);
+}
+
+.beam-lc-tile__label {
+  font-family: var(--font-ui);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-hi);
+  line-height: 1.3;
+}
+
+.beam-lc-tile__desc {
+  font-size: 10px;
+  color: var(--text-low);
+  line-height: 1.3;
+}
+
+.beam-lc-diagram {
+  width: 64px;
+  height: 32px;
+  flex-shrink: 0;
+}
+
+/* ─── Beam preview SVG ──────────────────────────────────── */
+
+.beam-preview-svg {
+  width: 100%;
+  display: block;
+  border-radius: var(--r-card);
+}
+
+.beam-preview-meta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--stroke);
+}
+
+/* ─── Run button ────────────────────────────────────────── */
+
+.beam-run-btn {
+  width: 100%;
+  padding: 13px var(--space-6);
+  background: var(--accent);
+  border: none;
+  border-radius: var(--r-control);
+  color: #fff;
+  font-family: var(--font-ui);
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+  cursor: pointer;
+  transition:
+    opacity var(--dur-fast) var(--ease-out),
+    box-shadow var(--dur-fast) var(--ease-out),
+    transform var(--dur-fast) var(--ease-out);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  box-shadow: 0 0 20px rgba(59, 130, 246, 0.3);
+  margin-top: var(--space-2);
+}
+
+.beam-run-btn:hover:not(:disabled) {
+  box-shadow: 0 0 28px rgba(59, 130, 246, 0.5);
+  transform: translateY(-1px);
+}
+
+.beam-run-btn:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.beam-run-btn--loading {
+  opacity: 0.8;
+}
+
+/* Spinner */
+.beam-run-btn__spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: beam-spin 0.7s linear infinite;
+  flex-shrink: 0;
+}
+
+@keyframes beam-spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .beam-run-btn__spinner {
+    animation: none;
+    opacity: 0.6;
+  }
+  .beam-run-btn:hover:not(:disabled) {
+    transform: none;
+  }
+}
+
+/* ─── Error panel ───────────────────────────────────────── */
+
+.beam-error {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  background: rgba(248, 113, 113, 0.08);
+  border: 1px solid rgba(248, 113, 113, 0.35);
+  border-radius: var(--r-control);
+}
+
+.beam-error__icon {
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--fail);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+
+.beam-error__msg {
+  font-size: 13px;
+  color: var(--fail);
+  line-height: 1.5;
+}
+
+/* ─── Tab dot (locked tabs) ─────────────────────────────── */
+
+.beam-tab-dot {
+  display: inline-block;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--text-low);
+  margin-left: 5px;
+  vertical-align: middle;
+  opacity: 0.6;
+}
+
+/* ─── Results layout ────────────────────────────────────── */
+
+.beam-results {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+/* ─── Hero card ─────────────────────────────────────────── */
+
+.beam-hero {
+  position: relative;
+  background: var(--bg-panel);
+  border-radius: var(--r-panel);
+  border: 1px solid var(--stroke);
+  box-shadow: var(--glow-live);
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-6);
+  padding: var(--space-6);
+  overflow: hidden;
+  animation: beam-hero-in var(--dur-slow) var(--ease-out) both;
+}
+
+@keyframes beam-hero-in {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .beam-hero {
+    animation: none;
+  }
+}
+
+.beam-hero__strip {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 4px;
+  height: 100%;
+  border-radius: var(--r-panel) 0 0 var(--r-panel);
+}
+
+.beam-hero--pass .beam-hero__strip  { background: var(--pass); }
+.beam-hero--warn .beam-hero__strip  { background: var(--warn); }
+.beam-hero--fail .beam-hero__strip  { background: var(--fail); }
+.beam-hero--neutral .beam-hero__strip { background: var(--neutral); }
+
+.beam-hero__glyph {
+  flex-shrink: 0;
+  padding: var(--space-2);
+  background: var(--bg-panel-2);
+  border: 1px solid var(--stroke);
+  border-radius: var(--r-card);
+  margin-left: var(--space-2);
+}
+
+.beam-hero__center {
+  flex: 1;
+  min-width: 0;
+}
+
+.beam-hero__name {
+  font-family: var(--font-ui);
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-hi);
+  letter-spacing: -0.3px;
+  margin-top: var(--space-1);
+  margin-bottom: var(--space-4);
+  word-break: break-word;
+}
+
+.beam-hero__metrics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-6);
+  margin-bottom: var(--space-4);
+}
+
+.beam-hero__why {
+  font-size: 13px;
+  color: var(--text-low);
+  line-height: 1.6;
+  font-style: italic;
+  border-top: 1px solid var(--stroke);
+  padding-top: var(--space-3);
+  margin-top: var(--space-1);
+}
+
+.beam-hero__status-badge {
+  flex-shrink: 0;
+  align-self: flex-start;
+}
+
+@media (max-width: 600px) {
+  .beam-hero {
+    flex-direction: column;
+    gap: var(--space-4);
+  }
+  .beam-hero__metrics {
+    gap: var(--space-4);
+  }
+}
+
+/* ─── HeroMetric ────────────────────────────────────────── */
+
+.beam-hero-metric {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.beam-hero-metric__label {
+  /* already .overline from class */
+}
+
+.beam-hero-metric__value {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 16px;
+  font-weight: 500;
+  color: var(--text-hi);
+}
+
+.beam-hero-metric__unit {
+  font-size: 12px;
+  color: var(--text-low);
+  font-weight: 400;
+}
+
+/* ─── SafetyCaseTable ───────────────────────────────────── */
+
+.beam-sct {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.beam-sct__head {
+  display: grid;
+  grid-template-columns: 180px 1fr 1fr 140px 100px;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  font-family: var(--font-ui);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: var(--text-low);
+  border-bottom: 1px solid var(--stroke);
+  margin-bottom: var(--space-1);
+}
+
+.beam-sct__row {
+  display: grid;
+  grid-template-columns: 180px 1fr 1fr 140px 100px;
+  gap: var(--space-2);
+  align-items: center;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--r-control);
+  font-size: 13px;
+  animation: beam-row-in var(--dur-base) var(--ease-out) var(--row-delay, 0ms) both;
+  transition: background var(--dur-fast) var(--ease-out);
+}
+
+.beam-sct__row:hover {
+  background: var(--bg-panel-2);
+}
+
+@keyframes beam-row-in {
+  from { opacity: 0; transform: translateX(-4px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .beam-sct__row {
+    animation: none;
+  }
+}
+
+.beam-sct__check-name {
+  font-size: 13px;
+  color: var(--text-hi);
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.beam-sct__margin-cell {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.beam-sct__margin-pct {
+  font-size: 11px;
+  color: var(--text-low);
+  white-space: nowrap;
+  min-width: 36px;
+}
+
+@media (max-width: 800px) {
+  .beam-sct__head,
+  .beam-sct__row {
+    grid-template-columns: 140px 1fr 100px 80px;
+  }
+  /* Hide allowable on narrow */
+  .beam-sct__head > span:nth-child(3),
+  .beam-sct__row > span:nth-child(3) {
+    display: none;
+  }
+}
+
+/* ─── Candidates summary ────────────────────────────────── */
+
+.beam-summary-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-8);
+}
+
+.beam-summary-stat {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.beam-summary-stat__val {
+  font-family: var(--font-mono);
+  font-size: 28px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-hi);
+  line-height: 1;
+}
+
+.beam-summary-stat__label {
+  /* .overline applied inline */
+}
+
+/* ─── Tradeoffs layout ──────────────────────────────────── */
+
+.beam-tradeoffs {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+/* ─── Pareto scatter ────────────────────────────────────── */
+
+.beam-scatter-wrap {
+  width: 100%;
+}
+
+.beam-scatter {
+  width: 100%;
+  display: block;
+  max-height: 380px;
+}
+
+/* Knee point pulse */
+.beam-scatter__knee {
+  animation: beam-pulse 1.8s ease-in-out infinite;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+@keyframes beam-pulse {
+  0%, 100% { r: 7; opacity: 1; }
+  50%       { r: 10; opacity: 0.7; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .beam-scatter__knee {
+    animation: none;
+  }
+}
+
+.beam-scatter__legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+  margin-top: var(--space-3);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--stroke);
+}
+
+.beam-scatter__legend-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-low);
+}
+
+.beam-scatter__legend-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.beam-scatter__legend-ring {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 2px solid var(--pass);
+  flex-shrink: 0;
+}
+
+.beam-scatter__tooltip {
+  pointer-events: none;
+}
+
+/* ─── DataTable ─────────────────────────────────────────── */
+
+.beam-dt-wrap {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.beam-dt {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.beam-dt__th {
+  padding: var(--space-2) var(--space-3);
+  text-align: left;
+  font-family: var(--font-ui);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: var(--text-low);
+  border-bottom: 1px solid var(--stroke);
+  white-space: nowrap;
+}
+
+.beam-dt__td {
+  padding: var(--space-2) var(--space-3);
+  color: var(--text-mid);
+  border-bottom: 1px solid var(--stroke-soft);
+  white-space: nowrap;
+}
+
+.beam-dt__row {
+  transition: background var(--dur-fast) var(--ease-out);
+}
+
+.beam-dt__row:hover {
+  background: var(--bg-panel-2);
+}
+
+.beam-dt__row--highlight {
+  background: rgba(59, 130, 246, 0.07);
+}
+
+.beam-dt__row--highlight td {
+  color: var(--text-hi);
+}
+
+.beam-dt__row--highlight:hover {
+  background: rgba(59, 130, 246, 0.12);
+}
+
+/* ─── Design Review ─────────────────────────────────────── */
+
+.beam-review-doc {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.beam-review-section {
+  padding: var(--space-4) 0;
+  border-bottom: 1px solid var(--stroke-soft);
+  animation: beam-section-in var(--dur-base) var(--ease-out) var(--section-delay, 0ms) both;
+}
+
+.beam-review-section:last-child {
+  border-bottom: none;
+}
+
+@keyframes beam-section-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .beam-review-section {
+    animation: none;
+  }
+}
+
+.beam-review-section__overline {
+  display: block;
+  margin-bottom: var(--space-2);
+}
+
+.beam-review-section__body {
+  /* content-specific */
+}
+
+.beam-review-constraint {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  max-width: 360px;
+}
+
+.beam-review-constraint__meter {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.beam-review-risks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: var(--space-1);
+}
+
+.beam-review-sensitivities {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+/* ─── SensitivityBar ────────────────────────────────────── */
+
+.beam-sensitivity-row {
+  padding: var(--space-3);
+  background: var(--bg-panel-2);
+  border: 1px solid var(--stroke);
+  border-radius: var(--r-control);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  transition: border-color var(--dur-fast) var(--ease-out);
+}
+
+.beam-sensitivity-row--highlight {
+  border-color: var(--warn);
+  background: rgba(251, 191, 36, 0.05);
+}
+
+.beam-sensitivity-row__param {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.beam-sensitivity-row__bars {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.beam-sensitivity-row__bar-wrap {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.beam-sensitivity-row__bar-wrap .overline {
+  min-width: 80px;
+}
+
+.beam-sensitivity-row__track {
+  flex: 1;
+  height: 6px;
+  background: var(--bg-panel);
+  border-radius: var(--r-pill);
+  overflow: hidden;
+  border: 1px solid var(--stroke);
+}
+
+.beam-sensitivity-row__fill {
+  height: 100%;
+  border-radius: var(--r-pill);
+  transition: width var(--dur-base) var(--ease-out);
+  min-width: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .beam-sensitivity-row__fill {
+    transition: none;
+  }
+}
