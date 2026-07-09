@@ -18,7 +18,20 @@
       "Bash(taskkill:*)",
       "Bash(curl:*)",
       "WebFetch(domain:github.com)",
-      "WebFetch(domain:img.shields.io)"
+      "WebFetch(domain:img.shields.io)",
+      "Bash(npx vite:*)",
+      "Bash(npx tsc:*)",
+      "mcp__claude_ai_Figma__whoami",
+      "mcp__claude_ai_Figma__create_new_file",
+      "mcp__claude_ai_Figma__use_figma",
+      "mcp__claude_ai_Figma__get_screenshot",
+      "Bash(find .claude -type f)",
+      "Bash(find frontend *)",
+      "Bash(find frontend/src -maxdepth 2)",
+      "Bash(mv mechopt/visuals ./visuals)",
+      "Bash(rmdir mechopt *)",
+      "Bash(netstat -ano)",
+      "Bash(awk '/^## 5.2 Bracket Analysis/,/^## 5.3/' MECHOPT_VISUAL_UI_REFERENCE_AND_IMPROVEMENT_PLAN.md)"
     ]
   }
 }
