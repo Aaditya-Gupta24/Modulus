@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import StatusPill from '../components/StatusPill';
 import ReactiveField from '../components/ReactiveField';
@@ -49,30 +49,22 @@ const QUICK_ACTIONS: { label: string; desc: string; target: ViewId }[] = [
   { label: 'View the validation', desc: 'FEA vs analytical results',         target: 'validation' },
 ];
 
-// Cycling objective word (kept, but baseline-aligned so it never breaks the line)
 const OBJECTIVES: { word: string; color: string }[] = [
   { word: 'lightest', color: '#22D3EE' },
   { word: 'cheapest', color: '#FBBF24' },
   { word: 'safest',   color: '#34D399' },
 ];
 
-function useObjectiveRotation(interval = 2400) {
+function useObjectiveRotation() {
   const [index, setIndex] = useState(0);
-  const prefersReduced = useRef(false);
 
   useEffect(() => {
-    prefersReduced.current =
-      typeof window !== 'undefined' &&
-      window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  }, []);
-
-  useEffect(() => {
-    if (prefersReduced.current) return;
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
     const timer = setInterval(() => {
       setIndex(prev => (prev + 1) % OBJECTIVES.length);
-    }, interval);
+    }, 2400);
     return () => clearInterval(timer);
-  }, [interval]);
+  }, []);
 
   return OBJECTIVES[index];
 }
@@ -81,28 +73,37 @@ function useObjectiveRotation(interval = 2400) {
 // Motion variants
 // ─────────────────────────────────────────────
 
+const EASE: [number, number, number, number] = [0.16, 1, 0.3, 1];
+
 const stagger = {
   hidden: {},
   visible: { transition: { staggerChildren: 0.08, delayChildren: 0.1 } },
 };
 
-const fadeUp = {
-  hidden: { opacity: 0, y: 20 },
-  visible: {
-    opacity: 1,
-    y: 0,
-    transition: { duration: 0.6, ease: [0.16, 1, 0.3, 1] as [number, number, number, number] },
-  },
-};
+const rise = (y: number) => ({
+  hidden: { opacity: 0, y },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.6, ease: EASE } },
+});
 
-const bandReveal = {
-  hidden: { opacity: 0, y: 28 },
-  visible: {
-    opacity: 1,
-    y: 0,
-    transition: { duration: 0.6, ease: [0.16, 1, 0.3, 1] as [number, number, number, number] },
-  },
-};
+const fadeUp = rise(20);
+const bandReveal = rise(28);
+
+/** Scroll-revealed section band shared by all dashboard sections. */
+function Band({ title, tag, children }: { title: string; tag: string; children: React.ReactNode }) {
+  return (
+    <motion.section
+      className="dash-band"
+      variants={bandReveal}
+      initial="hidden"
+      whileInView="visible"
+      viewport={{ once: true, amount: 0.3 }}
+    >
+      <h2 className="dash-band__title">{title}</h2>
+      <p className="dash-band__tag">{tag}</p>
+      {children}
+    </motion.section>
+  );
+}
 
 // ─────────────────────────────────────────────
 // Component
@@ -110,30 +111,23 @@ const bandReveal = {
 
 export default function Dashboard({ onNavigate }: DashboardProps) {
   const [materials, setMaterials] = useState<Material[]>([]);
-  const [matLoading, setMatLoading] = useState(true);
-  const [matError, setMatError] = useState(false);
+  // null = still loading, false = backend offline
   const [apiConnected, setApiConnected] = useState<boolean | null>(null);
   const objective = useObjectiveRotation();
 
   useEffect(() => {
-    setMatLoading(true);
     (api.getMaterials() as Promise<Material[]>)
       .then(data => {
         setMaterials(Array.isArray(data) ? data : []);
         setApiConnected(true);
-        setMatLoading(false);
       })
-      .catch(() => {
-        setApiConnected(false);
-        setMatError(true);
-        setMatLoading(false);
-      });
+      .catch(() => setApiConnected(false));
   }, []);
 
   return (
     <div className="dash">
       {/* Reactive FEA stress-field — full-page backdrop behind every section */}
-      <ReactiveField className="dash-field" spacing={44} radius={240} />
+      <ReactiveField className="dash-field" spacing={44} />
 
       {/* ══ HERO — full viewport ══ */}
       <section className="dash-hero">
@@ -145,7 +139,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
           initial="hidden"
           animate="visible"
         >
-          <motion.h1 className="dash-wordmark" variants={fadeUp} aria-label="MechOpt">
+          <motion.h1 className="dash-wordmark" variants={fadeUp}>
             MechOpt
           </motion.h1>
 
@@ -164,7 +158,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                   initial={{ y: 12, opacity: 0 }}
                   animate={{ y: 0, opacity: 1 }}
                   exit={{ y: -12, opacity: 0 }}
-                  transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
+                  transition={{ duration: 0.28, ease: EASE }}
                 >
                   {objective.word}
                 </motion.span>
@@ -191,22 +185,9 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
           </motion.div>
         </motion.div>
 
-        <div className="dash-hero__scroll" aria-hidden="true">
-          <span>Scroll</span>
-          <span className="dash-hero__scroll-arrow">&darr;</span>
-        </div>
       </section>
 
-      {/* ══ BAND — Capabilities ══ */}
-      <motion.section
-        className="dash-band"
-        variants={bandReveal}
-        initial="hidden"
-        whileInView="visible"
-        viewport={{ once: true, amount: 0.3 }}
-      >
-        <h2 className="dash-band__title">Everything the solver checks.</h2>
-        <p className="dash-band__tag">Engine · Capabilities</p>
+      <Band title="Everything the solver checks." tag="Engine · Capabilities">
         <div className="dash-cap-grid">
           {CAPABILITIES.map((cap, i) => (
             <div key={cap} className="dash-cap">
@@ -215,21 +196,12 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
             </div>
           ))}
         </div>
-      </motion.section>
+      </Band>
 
-      {/* ══ BAND — Materials Library ══ */}
-      <motion.section
-        className="dash-band"
-        variants={bandReveal}
-        initial="hidden"
-        whileInView="visible"
-        viewport={{ once: true, amount: 0.3 }}
-      >
-        <h2 className="dash-band__title">Six materials, one comparison.</h2>
-        <p className="dash-band__tag">Library · Materials</p>
-        {matLoading ? (
+      <Band title="Six materials, one comparison." tag="Library · Materials">
+        {apiConnected === null ? (
           <p className="dash-note">Loading materials&hellip;</p>
-        ) : matError ? (
+        ) : apiConnected === false ? (
           <p className="dash-note dash-note--hot">Backend offline — start the API server.</p>
         ) : (
           <table className="dash-mat-table" aria-label="Materials library">
@@ -262,18 +234,9 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
             </tbody>
           </table>
         )}
-      </motion.section>
+      </Band>
 
-      {/* ══ BAND — System status (technical readout) ══ */}
-      <motion.section
-        className="dash-band"
-        variants={bandReveal}
-        initial="hidden"
-        whileInView="visible"
-        viewport={{ once: true, amount: 0.3 }}
-      >
-        <h2 className="dash-band__title">Verified and online.</h2>
-        <p className="dash-band__tag">System · Status</p>
+      <Band title="Verified and online." tag="System · Status">
         <div className="dash-readout">
           <div className="dash-readout__item">
             <span className="dash-readout__label">API</span>
@@ -300,18 +263,9 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
             <span className="dash-readout__val dash-readout__val--pass">&lt;&thinsp;0.01&thinsp;%</span>
           </div>
         </div>
-      </motion.section>
+      </Band>
 
-      {/* ══ BAND — Quick actions (below the fold) ══ */}
-      <motion.section
-        className="dash-band"
-        variants={bandReveal}
-        initial="hidden"
-        whileInView="visible"
-        viewport={{ once: true, amount: 0.3 }}
-      >
-        <h2 className="dash-band__title">Pick a workflow.</h2>
-        <p className="dash-band__tag">Start</p>
+      <Band title="Pick a workflow." tag="Start">
         <div className="dash-actions">
           {QUICK_ACTIONS.map(action => (
             <button
@@ -327,7 +281,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
             </button>
           ))}
         </div>
-      </motion.section>
+      </Band>
     </div>
   );
 }

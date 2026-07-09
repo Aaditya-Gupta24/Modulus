@@ -503,10 +503,6 @@
   gap: 3px;
 }
 
-.beam-hero-metric__label {
-  /* already .overline from class */
-}
-
 .beam-hero-metric__value {
   font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
@@ -626,10 +622,6 @@
   font-variant-numeric: tabular-nums;
   color: var(--text-hi);
   line-height: 1;
-}
-
-.beam-summary-stat__label {
-  /* .overline applied inline */
 }
 
 /* ─── Tradeoffs layout ──────────────────────────────────── */
@@ -794,10 +786,6 @@
   margin-bottom: var(--space-2);
 }
 
-.beam-review-section__body {
-  /* content-specific */
-}
-
 .beam-review-constraint {
   display: flex;
   flex-direction: column;
@@ -885,4 +873,56 @@
   .beam-sensitivity-row__fill {
     transition: none;
   }
+}
+
+/* ── Calculation drawer (doc §6.6) ─────────────────────── */
+.beam-calc {
+  margin-top: var(--space-4);
+  border-top: 1px solid var(--stroke-soft);
+  padding-top: var(--space-3);
+}
+.beam-calc__toggle {
+  display: inline-flex; align-items: center; gap: 8px;
+  background: transparent; border: none; cursor: pointer;
+  font-family: var(--font-ui); font-size: 13px; font-weight: 600;
+  color: var(--cyan); padding: 4px 0;
+}
+.beam-calc__toggle:hover { color: var(--accent-2); }
+.beam-calc__toggle-caret { font-size: 11px; }
+.beam-calc__steps {
+  list-style: none; margin: var(--space-3) 0 0; padding: 0;
+  display: flex; flex-direction: column; gap: 8px;
+}
+.beam-calc__step {
+  display: flex; align-items: center; gap: 12px;
+  background: var(--bg-panel-2); border: 1px solid var(--stroke-soft);
+  border-radius: var(--r-card); padding: 10px 14px;
+}
+.beam-calc__step-num {
+  color: var(--text-low); font-size: 12px; flex-shrink: 0;
+}
+.beam-calc__step-body {
+  display: grid; grid-template-columns: 150px 1fr; gap: 2px 16px;
+  align-items: baseline; flex: 1; min-width: 0;
+}
+.beam-calc__step-label {
+  font-family: var(--font-ui); font-size: 12px; font-weight: 600;
+  color: var(--text-mid); grid-row: span 2;
+}
+.beam-calc__step-expr { font-size: 13px; color: var(--text-hi); }
+.beam-calc__step-result { font-size: 11px; color: var(--text-low); }
+.beam-calc__step-out {
+  grid-column: 2; font-size: 12px; color: var(--cyan);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Near-limit banner on hero ─────────────────────────── */
+.beam-hero__nearlimit {
+  margin-top: var(--space-3);
+  padding: 8px 12px;
+  border-radius: var(--r-card);
+  background: rgba(251,191,36,0.10);
+  border: 1px solid rgba(251,191,36,0.28);
+  color: var(--warn);
+  font-size: 12.5px; line-height: 1.5;
 }

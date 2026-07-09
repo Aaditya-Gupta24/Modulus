@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState } from 'react';
 import Panel from '../components/Panel';
 import StatusPill from '../components/StatusPill';
 import MarginMeter from '../components/MarginMeter';
@@ -267,12 +267,12 @@ function ChipSelector({ chips, selected, onChange, label }: ChipSelectorProps) {
               type="button"
               className={`beam-chip${active ? ' beam-chip--active' : ''}`}
               onClick={() => toggle(chip.id)}
-              style={active && chip.color ? { borderColor: chip.color, color: chip.color } as React.CSSProperties : undefined}
+              style={active && chip.color ? { borderColor: chip.color, color: chip.color } : undefined}
             >
               {chip.color && (
                 <span
                   className="beam-chip__dot"
-                  style={{ background: chip.color } as React.CSSProperties}
+                  style={{ background: chip.color }}
                 />
               )}
               {chip.label}
@@ -298,7 +298,6 @@ function BeamPreviewSVG({ loadCase, load, length }: BeamPreviewProps) {
   const beamX1 = W - 60;
   const beamLen = beamX1 - beamX0;
 
-  // Clamp arrow scale
   const arrowScale = Math.min(1, Math.max(0.2, load / 2000));
   const arrowH = 44 * arrowScale;
 
@@ -335,7 +334,6 @@ function BeamPreviewSVG({ loadCase, load, length }: BeamPreviewProps) {
     return nodes;
   }
 
-  // UDL top bar
   function udlBar(): React.ReactNode {
     return (
       <line
@@ -425,7 +423,6 @@ function BeamPreviewSVG({ loadCase, load, length }: BeamPreviewProps) {
     );
   }
 
-  // Load case title
   const lcTitle = loadCase.replace(/_/g, ' ').toUpperCase();
 
   return (
@@ -449,7 +446,6 @@ function BeamPreviewSVG({ loadCase, load, length }: BeamPreviewProps) {
         {lcTitle}
       </text>
 
-      {/* Deflection curve (dashed cyan) */}
       <path d={deflPath()} fill="none" stroke="var(--cyan)" strokeWidth="1.5"
         strokeDasharray="6 4" opacity="0.55" />
 
@@ -470,7 +466,6 @@ function BeamPreviewSVG({ loadCase, load, length }: BeamPreviewProps) {
         rx="3" fill="var(--bg-panel)" stroke="var(--text-mid)" strokeWidth="1.8"
         opacity="0.85" />
 
-      {/* Supports */}
       {isCantilever ? fixedWall() : (
         <>
           {pinSupport(beamX0)}
@@ -478,7 +473,6 @@ function BeamPreviewSVG({ loadCase, load, length }: BeamPreviewProps) {
         </>
       )}
 
-      {/* Load */}
       {isUDL ? (
         <>
           {udlBar()}
@@ -496,7 +490,6 @@ function BeamPreviewSVG({ loadCase, load, length }: BeamPreviewProps) {
         {isUDL ? `q = ${(load / length).toFixed(0)} N/m` : `P = ${load} N`}
       </text>
 
-      {/* Dimension line */}
       {dimensionLine()}
 
       {/* Stress gradient bar */}
@@ -560,6 +553,97 @@ function SafetyCaseTable({ checks, animate = true }: SafetyCaseTableProps) {
           />
         </div>
       ))}
+    </div>
+  );
+}
+
+// ---- CalculationDrawer ----
+// Transparent calculation path (doc §6.6): governing equation → substituted
+// values → engine result → pass/fail. All numbers come from the engine output
+// (σ, δ, FoS); the moment substitution mirrors the engine's own formula.
+const MOMENT_FORMULA: Record<string, { expr: string; factor: (p: number, l: number) => number }> = {
+  cantilever_end: { expr: 'M = P·L',       factor: (p, l) => p * l },
+  cantilever_udl: { expr: 'M = P·L / 2',   factor: (p, l) => (p * l) / 2 },
+  simply_center:  { expr: 'M = P·L / 4',   factor: (p, l) => (p * l) / 4 },
+  simply_udl:     { expr: 'M = P·L / 8',   factor: (p, l) => (p * l) / 8 },
+};
+const DEFLECTION_FORMULA: Record<string, string> = {
+  cantilever_end: 'δ = P·L³ / (3·E·I)',
+  cantilever_udl: 'δ = P·L³ / (8·E·I)',
+  simply_center:  'δ = P·L³ / (48·E·I)',
+  simply_udl:     'δ = 5·P·L³ / (384·E·I)',
+};
+
+interface CalcDrawerProps {
+  rec: CandidateRow & { I: number; safety_case: SafetyCase };
+  load: number;
+  length: number;
+  loadCase: string;
+  fosTarget: number;
+  deflectionLimitMm: number;
+}
+function CalculationDrawer({ rec, load, length, loadCase, fosTarget, deflectionLimitMm }: CalcDrawerProps) {
+  const [open, setOpen] = useState(false);
+
+  const mf = MOMENT_FORMULA[loadCase] ?? MOMENT_FORMULA.cantilever_end;
+  const moment = mf.factor(load, length);
+  const bending = rec.safety_case?.checks?.find(c => c.name === 'bending_stress');
+  const deflMm = rec.deflection * 1000;
+  const deflPass = deflMm <= deflectionLimitMm;
+  const fosPass = rec.fos >= fosTarget;
+
+  const steps: { n: number; label: string; expr: string; result: string; status?: 'pass' | 'fail' }[] = [
+    {
+      n: 1, label: 'Max bending moment', expr: mf.expr,
+      result: `M = ${fmtSI(moment, 'N·m')}`,
+    },
+    {
+      n: 2, label: 'Bending stress', expr: 'σ = M·c / I',
+      result: bending ? `σ = ${fmtSI(bending.actual, 'Pa')}` : `σ = ${fmtSI(rec.stress, 'Pa')}`,
+    },
+    {
+      n: 3, label: 'Tip deflection', expr: DEFLECTION_FORMULA[loadCase] ?? DEFLECTION_FORMULA.cantilever_end,
+      result: `δ = ${fmt(deflMm, 3)} mm  (limit ${fmt(deflectionLimitMm, 2)} mm)`,
+      status: deflPass ? 'pass' : 'fail',
+    },
+    {
+      n: 4, label: 'Factor of safety', expr: 'FoS = σ_y / σ',
+      result: `FoS = ${fmt(rec.fos, 2)}  (target ${fmt(fosTarget, 2)})`,
+      status: fosPass ? 'pass' : 'fail',
+    },
+  ];
+
+  return (
+    <div className={`beam-calc${open ? ' beam-calc--open' : ''}`}>
+      <button
+        type="button"
+        className="beam-calc__toggle"
+        onClick={() => setOpen(o => !o)}
+        aria-expanded={open}
+      >
+        <span className="beam-calc__toggle-caret" aria-hidden="true">{open ? '▾' : '▸'}</span>
+        {open ? 'Hide calculation path' : 'Show calculation path'}
+      </button>
+      {open && (
+        <ol className="beam-calc__steps">
+          {steps.map(s => (
+            <li key={s.n} className="beam-calc__step">
+              <span className="beam-calc__step-num mono">{String(s.n).padStart(2, '0')}</span>
+              <div className="beam-calc__step-body">
+                <span className="beam-calc__step-label">{s.label}</span>
+                <span className="beam-calc__step-expr mono">{s.expr}</span>
+                <span className="beam-calc__step-result mono">
+                  P = {load} N · L = {fmt(length, 2)} m
+                </span>
+                <span className="beam-calc__step-out mono">{s.result}</span>
+              </div>
+              {s.status && (
+                <StatusPill status={s.status} label={s.status === 'pass' ? 'Pass' : 'Fail'} />
+              )}
+            </li>
+          ))}
+        </ol>
+      )}
     </div>
   );
 }
@@ -682,7 +766,6 @@ function ParetoScatter({ allCandidates, paretoFront, kneePoint, recommended }: P
     .map(([x, y], i) => `${i === 0 ? 'M' : 'L'} ${x} ${y}`)
     .join(' ');
 
-  // Recommended coords
   const recCoords = recommended ? toSvg(recommended.weight, recommended.cost) : null;
 
   return (
@@ -797,19 +880,19 @@ function ParetoScatter({ allCandidates, paretoFront, kneePoint, recommended }: P
       {/* Legend */}
       <div className="beam-scatter__legend">
         <span className="beam-scatter__legend-item">
-          <span className="beam-scatter__legend-dot" style={{ background: 'var(--text-low)', opacity: 0.45 } as React.CSSProperties} />
+          <span className="beam-scatter__legend-dot" style={{ background: 'var(--text-low)', opacity: 0.45 }} />
           Safe candidate
         </span>
         <span className="beam-scatter__legend-item">
-          <span className="beam-scatter__legend-dot" style={{ background: 'var(--fail)', opacity: 0.5 } as React.CSSProperties} />
+          <span className="beam-scatter__legend-dot" style={{ background: 'var(--fail)', opacity: 0.5 }} />
           Infeasible
         </span>
         <span className="beam-scatter__legend-item">
-          <span className="beam-scatter__legend-dot" style={{ background: 'var(--cyan)' } as React.CSSProperties} />
+          <span className="beam-scatter__legend-dot" style={{ background: 'var(--cyan)' }} />
           Pareto front
         </span>
         <span className="beam-scatter__legend-item">
-          <span className="beam-scatter__legend-dot" style={{ background: 'var(--accent)' } as React.CSSProperties} />
+          <span className="beam-scatter__legend-dot" style={{ background: 'var(--accent)' }} />
           Knee point
         </span>
         <span className="beam-scatter__legend-item">
@@ -819,6 +902,63 @@ function ParetoScatter({ allCandidates, paretoFront, kneePoint, recommended }: P
       </div>
     </div>
   );
+}
+
+// ---- LoadCaseDiagram (tiny load-case SVGs) ----
+function LoadCaseDiagram({ id }: { id: string }) {
+  const w = 64, h = 32;
+  switch (id) {
+    case 'cantilever_end':
+      return (
+        <svg viewBox={`0 0 ${w} ${h}`} className="beam-lc-diagram" aria-hidden="true">
+          <rect x={0} y={10} width={8} height={12} fill="var(--stroke)" />
+          <line x1={8} y1={16} x2={56} y2={16} stroke="var(--text-mid)" strokeWidth="3" />
+          <line x1={52} y1={6} x2={52} y2={16} stroke="var(--accent)" strokeWidth="1.5" />
+          <polygon points="52,16 49,10 55,10" fill="var(--accent)" />
+        </svg>
+      );
+    case 'cantilever_udl':
+      return (
+        <svg viewBox={`0 0 ${w} ${h}`} className="beam-lc-diagram" aria-hidden="true">
+          <rect x={0} y={10} width={8} height={12} fill="var(--stroke)" />
+          <line x1={8} y1={16} x2={56} y2={16} stroke="var(--text-mid)" strokeWidth="3" />
+          {[16, 24, 32, 40, 48].map(x => (
+            <g key={x}>
+              <line x1={x} y1={6} x2={x} y2={14} stroke="var(--accent)" strokeWidth="1.5" />
+              <polygon points={`${x},14 ${x - 2.5},9 ${x + 2.5},9`} fill="var(--accent)" />
+            </g>
+          ))}
+          <line x1={8} y1={6} x2={56} y2={6} stroke="var(--accent)" strokeWidth="1" />
+        </svg>
+      );
+    case 'simply_center':
+      return (
+        <svg viewBox={`0 0 ${w} ${h}`} className="beam-lc-diagram" aria-hidden="true">
+          <line x1={8} y1={16} x2={56} y2={16} stroke="var(--text-mid)" strokeWidth="3" />
+          <polygon points="8,16 4,24 12,24"  fill="none" stroke="var(--stroke)" strokeWidth="1.5" />
+          <polygon points="56,16 52,24 60,24" fill="none" stroke="var(--stroke)" strokeWidth="1.5" />
+          <line x1={32} y1={4} x2={32} y2={14} stroke="var(--accent)" strokeWidth="1.5" />
+          <polygon points="32,14 29,8 35,8" fill="var(--accent)" />
+        </svg>
+      );
+    case 'simply_udl':
+      return (
+        <svg viewBox={`0 0 ${w} ${h}`} className="beam-lc-diagram" aria-hidden="true">
+          <line x1={8} y1={16} x2={56} y2={16} stroke="var(--text-mid)" strokeWidth="3" />
+          <polygon points="8,16 4,24 12,24"  fill="none" stroke="var(--stroke)" strokeWidth="1.5" />
+          <polygon points="56,16 52,24 60,24" fill="none" stroke="var(--stroke)" strokeWidth="1.5" />
+          {[14, 22, 30, 38, 46, 54].map(x => (
+            <g key={x}>
+              <line x1={x} y1={6} x2={x} y2={14} stroke="var(--accent)" strokeWidth="1.5" />
+              <polygon points={`${x},14 ${x - 2.5},9 ${x + 2.5},9`} fill="var(--accent)" />
+            </g>
+          ))}
+          <line x1={8} y1={6} x2={56} y2={6} stroke="var(--accent)" strokeWidth="1" />
+        </svg>
+      );
+    default:
+      return null;
+  }
 }
 
 // ---- Section glyph SVGs ----
@@ -909,10 +1049,7 @@ function SensitivityBar({ row, isMostImportant }: { row: SensitivityRow; isMostI
           <div className="beam-sensitivity-row__track">
             <div
               className="beam-sensitivity-row__fill"
-              style={{
-                width: `${fosWidth}%`,
-                background: fosColor,
-              } as React.CSSProperties}
+              style={{ width: `${fosWidth}%`, background: fosColor }}
             />
           </div>
           <span className="mono" style={{ fontSize: 11, color: 'var(--text-mid)' }}>
@@ -953,7 +1090,7 @@ export default function BeamOptimizer() {
   const [error, setError]             = useState<string | null>(null);
 
   // ---- Run
-  const handleRun = useCallback(async () => {
+  async function handleRun() {
     if (selectedMaterials.length === 0 || selectedSections.length === 0) {
       setError('Select at least one material and one cross-section.');
       return;
@@ -987,7 +1124,7 @@ export default function BeamOptimizer() {
     } finally {
       setIsComputing(false);
     }
-  }, [load, length, loadCase, fosTarget, deflectionLimit, priority, selectedMaterials, selectedSections, stockMode]);
+  }
 
   // ─── Render helpers ───────────────────────
 
@@ -1005,10 +1142,8 @@ export default function BeamOptimizer() {
   function renderSetup() {
     return (
       <div className="beam-setup">
-        {/* Left column: controls */}
         <div className="beam-setup__controls">
 
-          {/* Loading */}
           <Panel title="Loading">
             <div className="beam-controls-row">
               <InputGroup
@@ -1049,7 +1184,6 @@ export default function BeamOptimizer() {
             </div>
           </Panel>
 
-          {/* Constraints */}
           <Panel title="Constraints">
             <div className="beam-controls-row">
               <InputGroup
@@ -1072,7 +1206,6 @@ export default function BeamOptimizer() {
             </div>
           </Panel>
 
-          {/* Priority */}
           <Panel title="Priority">
             <SegmentedToggle
               options={PRIORITY_OPTIONS}
@@ -1082,7 +1215,6 @@ export default function BeamOptimizer() {
             />
           </Panel>
 
-          {/* Materials */}
           <Panel title="Materials">
             <ChipSelector
               chips={ALL_MATERIALS}
@@ -1092,7 +1224,6 @@ export default function BeamOptimizer() {
             />
           </Panel>
 
-          {/* Cross-Sections */}
           <Panel title="Cross-Sections">
             <ChipSelector
               chips={ALL_SECTIONS}
@@ -1102,7 +1233,6 @@ export default function BeamOptimizer() {
             />
           </Panel>
 
-          {/* Design Mode */}
           <Panel title="Design Mode">
             <SegmentedToggle
               options={[
@@ -1115,7 +1245,6 @@ export default function BeamOptimizer() {
             />
           </Panel>
 
-          {/* Error */}
           {error && (
             <div className="beam-error" role="alert">
               <span className="beam-error__icon" aria-hidden="true">!</span>
@@ -1123,7 +1252,6 @@ export default function BeamOptimizer() {
             </div>
           )}
 
-          {/* Run button */}
           <button
             className={`beam-run-btn${isComputing ? ' beam-run-btn--loading' : ''}`}
             onClick={handleRun}
@@ -1139,7 +1267,6 @@ export default function BeamOptimizer() {
           </button>
         </div>
 
-        {/* Right column: beam preview */}
         <div className="beam-setup__preview">
           <Panel title="Beam Preview">
             <BeamPreviewSVG loadCase={loadCase} load={load} length={length} />
@@ -1171,7 +1298,6 @@ export default function BeamOptimizer() {
 
     return (
       <div className="beam-results">
-        {/* Hero card */}
         <div className={`beam-hero beam-hero--${overallStatus}`}>
           <div className="beam-hero__strip" />
           <div className="beam-hero__glyph">
@@ -1195,6 +1321,13 @@ export default function BeamOptimizer() {
             {results.review?.why_it_won && (
               <p className="beam-hero__why">{results.review.why_it_won}</p>
             )}
+            {rec.safe && rec.fos < fosTarget * 1.1 && (
+              <p className="beam-hero__nearlimit">
+                Passes, but with low margin — FoS {fmt(rec.fos, 2)} is only{' '}
+                {(((rec.fos - fosTarget) / fosTarget) * 100).toFixed(0)}% above the target
+                of {fmt(fosTarget, 2)}. Consider a larger section or stronger material.
+              </p>
+            )}
           </div>
           <div className="beam-hero__status-badge">
             <StatusPill
@@ -1204,16 +1337,22 @@ export default function BeamOptimizer() {
           </div>
         </div>
 
-        {/* Safety case table */}
         <Panel title="Safety Case Checks">
           {rec.safety_case?.checks ? (
             <SafetyCaseTable checks={rec.safety_case.checks} animate />
           ) : (
             <p className="label" style={{ color: 'var(--text-low)' }}>No safety case data returned.</p>
           )}
+          <CalculationDrawer
+            rec={rec}
+            load={load}
+            length={length}
+            loadCase={loadCase}
+            fosTarget={fosTarget}
+            deflectionLimitMm={deflectionLimit}
+          />
         </Panel>
 
-        {/* Candidates summary */}
         <Panel title="Sweep Summary">
           <div className="beam-summary-row">
             <div className="beam-summary-stat">
@@ -1270,7 +1409,6 @@ export default function BeamOptimizer() {
 
     return (
       <div className="beam-tradeoffs">
-        {/* Pareto scatter */}
         <Panel title="Pareto Front — Weight vs Cost">
           <ParetoScatter
             allCandidates={ranked}
@@ -1280,7 +1418,6 @@ export default function BeamOptimizer() {
           />
         </Panel>
 
-        {/* Top-5 table */}
         <Panel title="Top-5 Ranked Candidates">
           <DataTable
             columns={rankColumns}
@@ -1289,7 +1426,6 @@ export default function BeamOptimizer() {
           />
         </Panel>
 
-        {/* Envelope note */}
         <Panel title="Load-Case Envelope">
           <p className="label" style={{ color: 'var(--text-low)', lineHeight: 1.6 }}>
             Load-case envelope analysis computes worst-case stress and deflection across all
@@ -1427,64 +1563,6 @@ export default function BeamOptimizer() {
         </div>
       </Panel>
     );
-  }
-
-  // ─── Load case SVG diagrams (tiny) ────────
-
-  function LoadCaseDiagram({ id }: { id: string }) {
-    const w = 64, h = 32;
-    switch (id) {
-      case 'cantilever_end':
-        return (
-          <svg viewBox={`0 0 ${w} ${h}`} className="beam-lc-diagram" aria-hidden="true">
-            <rect x={0} y={10} width={8} height={12} fill="var(--stroke)" />
-            <line x1={8} y1={16} x2={56} y2={16} stroke="var(--text-mid)" strokeWidth="3" />
-            <line x1={52} y1={6} x2={52} y2={16} stroke="var(--accent)" strokeWidth="1.5" />
-            <polygon points="52,16 49,10 55,10" fill="var(--accent)" />
-          </svg>
-        );
-      case 'cantilever_udl':
-        return (
-          <svg viewBox={`0 0 ${w} ${h}`} className="beam-lc-diagram" aria-hidden="true">
-            <rect x={0} y={10} width={8} height={12} fill="var(--stroke)" />
-            <line x1={8} y1={16} x2={56} y2={16} stroke="var(--text-mid)" strokeWidth="3" />
-            {[16, 24, 32, 40, 48].map(x => (
-              <g key={x}>
-                <line x1={x} y1={6} x2={x} y2={14} stroke="var(--accent)" strokeWidth="1.5" />
-                <polygon points={`${x},14 ${x - 2.5},9 ${x + 2.5},9`} fill="var(--accent)" />
-              </g>
-            ))}
-            <line x1={8} y1={6} x2={56} y2={6} stroke="var(--accent)" strokeWidth="1" />
-          </svg>
-        );
-      case 'simply_center':
-        return (
-          <svg viewBox={`0 0 ${w} ${h}`} className="beam-lc-diagram" aria-hidden="true">
-            <line x1={8} y1={16} x2={56} y2={16} stroke="var(--text-mid)" strokeWidth="3" />
-            <polygon points="8,16 4,24 12,24"  fill="none" stroke="var(--stroke)" strokeWidth="1.5" />
-            <polygon points="56,16 52,24 60,24" fill="none" stroke="var(--stroke)" strokeWidth="1.5" />
-            <line x1={32} y1={4} x2={32} y2={14} stroke="var(--accent)" strokeWidth="1.5" />
-            <polygon points="32,14 29,8 35,8" fill="var(--accent)" />
-          </svg>
-        );
-      case 'simply_udl':
-        return (
-          <svg viewBox={`0 0 ${w} ${h}`} className="beam-lc-diagram" aria-hidden="true">
-            <line x1={8} y1={16} x2={56} y2={16} stroke="var(--text-mid)" strokeWidth="3" />
-            <polygon points="8,16 4,24 12,24"  fill="none" stroke="var(--stroke)" strokeWidth="1.5" />
-            <polygon points="56,16 52,24 60,24" fill="none" stroke="var(--stroke)" strokeWidth="1.5" />
-            {[14, 22, 30, 38, 46, 54].map(x => (
-              <g key={x}>
-                <line x1={x} y1={6} x2={x} y2={14} stroke="var(--accent)" strokeWidth="1.5" />
-                <polygon points={`${x},14 ${x - 2.5},9 ${x + 2.5},9`} fill="var(--accent)" />
-              </g>
-            ))}
-            <line x1={8} y1={6} x2={56} y2={6} stroke="var(--accent)" strokeWidth="1" />
-          </svg>
-        );
-      default:
-        return null;
-    }
   }
 
   // ─── Root render ──────────────────────────
