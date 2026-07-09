@@ -347,12 +347,12 @@ def render_beam_svg(
             badge_color = GREEN if passed else RED
             badge_text = "PASS" if passed else "FAIL"
             defl_caption = (
-                f'<tspan fill="{CYAN}">&delta;<sub></sub> = {defl_mm:.2f} mm</tspan>'
-                f'<tspan fill="{MUTED}"> / limit {limit_mm:.1f} mm &middot; </tspan>'
+                f'<tspan fill="{CYAN}">&#948; = {defl_mm:.2f} mm</tspan>'
+                f'<tspan fill="{MUTED}"> / limit {limit_mm:.1f} mm &#183; </tspan>'
                 f'<tspan fill="{badge_color}" font-weight="700">{badge_text}</tspan>'
             )
         else:
-            defl_caption = f'<tspan fill="{CYAN}">&delta; = {defl_mm:.2f} mm</tspan>'
+            defl_caption = f'<tspan fill="{CYAN}">&#948; = {defl_mm:.2f} mm</tspan>'
 
         parts.append(
             f'<text x="{span_x1:.1f}" y="{beam_mid_y+sag_px+16:.1f}" text-anchor="end" '

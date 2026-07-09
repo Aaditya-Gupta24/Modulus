@@ -186,7 +186,7 @@ def render_bracket_svg(
     parts.append(
         f'<text x="{(wall_x+arm_x1)/2:.1f}" y="{dim_y+34:.1f}" text-anchor="middle" '
         f'font-size="12" font-weight="700" fill="{CYAN}" font-family="Inter,sans-serif">'
-        f'M = P&middot;e = {moment_nm:,.1f} N&middot;m</text>'
+        f'M = P&#183;e = {moment_nm:,.1f} N&#183;m</text>'
     )
 
     # ═══════════════════════ FRONT VIEW ═══════════════════════════════════
