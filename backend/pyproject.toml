@@ -31,8 +31,8 @@ dev = ["pytest>=8.0"]
 api = ["fastapi>=0.110", "uvicorn[standard]>=0.29"]
 
 [project.urls]
-Homepage = "https://github.com/Aaditya-Gupta24/MechOpt"
-Repository = "https://github.com/Aaditya-Gupta24/MechOpt"
+Homepage = "https://github.com/Aaditya-Gupta24/Modulus"
+Repository = "https://github.com/Aaditya-Gupta24/Modulus"
 
 [tool.setuptools]
 packages = ["modulus", "modulus.visuals", "validation"]

@@ -14,7 +14,7 @@ Start the app (one server serves everything):
 
 ```bash
 cd frontend && npm run build
-cd ../mechopt && uv run --extra api uvicorn api:app --port 8000
+cd ../backend && uv run --extra api uvicorn api:app --port 8000
 ```
 
 Open <http://localhost:8000>, size the window to ~1440×900, and screenshot each view.

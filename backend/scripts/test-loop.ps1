@@ -43,7 +43,7 @@ function Invoke-TestRun {
 }
 
 function Get-SourceFingerprint {
-    $paths = @("mechopt", "tests", "app.py", "requirements.txt", "pytest.ini")
+    $paths = @("modulus", "tests", "requirements.txt", "pytest.ini")
     $items = foreach ($path in $paths) {
         if (Test-Path $path) {
             Get-ChildItem $path -Recurse -File |
@@ -71,7 +71,7 @@ while ($true) {
 
     $run += 1
     Write-Host ""
-    Write-Host "== MechOpt test loop run #$run ==" -ForegroundColor Cyan
+    Write-Host "== Modulus test loop run #$run ==" -ForegroundColor Cyan
     Invoke-TestRun
     $exitCode = $script:TestExitCode
 

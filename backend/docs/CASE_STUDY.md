@@ -1,13 +1,13 @@
 # Case Study — Why the optimizer prefers tubes and I-beams
 
 A factor-of-safety number on its own doesn't justify a design. This walkthrough
-uses MechOpt to make an actual decision and shows *why* the answer is what it is.
+uses Modulus to make an actual decision and shows *why* the answer is what it is.
 
 ## The problem
 
 Cantilever bracket arm, steel A36, span **L = 1.0 m**, end load **P = 600 N**,
 required **factor of safety ≥ 2.0**. Which cross-section carries this load with the
-least mass? MechOpt sweeps six section families across dimensions from 10–100 mm
+least mass? Modulus sweeps six section families across dimensions from 10–100 mm
 and keeps the 41 safe candidates (of 60 total).
 
 ## The result
@@ -35,15 +35,15 @@ pushes the same mass outward to large `y`, buying a much larger `I` for the same
 weight.
 
 That is the entire reason aircraft spars, bike frames, and scaffolding are
-hollow — and MechOpt rediscovers it from first principles rather than being told.
+hollow — and Modulus rediscovers it from first principles rather than being told.
 
 ## The caveat a real engineer would add
 
 This screen ranks on bending strength only. Thin-walled tubes that win here can
 **lose to local buckling** (wall crippling) that the model does not yet check — so
 the I-beam's 64 % saving is an upper bound until a buckling check is added
-(tracked on the roadmap). MechOpt is a screening tool: it narrows six families to
+(tracked on the roadmap). Modulus is a screening tool: it narrows six families to
 one or two worth analyzing properly, not the final word.
 
-_Reproduce: `PYTHONPATH=. python -c "from mechopt.optimizer import evaluate_candidates; ..."`
+_Reproduce: `PYTHONPATH=. python -c "from modulus.optimizer import evaluate_candidates; ..."`
 or open the Beam Optimizer tab with these inputs._

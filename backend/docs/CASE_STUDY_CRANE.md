@@ -173,7 +173,7 @@ columns in the elastic range. Several important effects are absent:
   exceed 2.0, worsening the buckling load. The base connection design must match
   the assumed boundary condition.
 
-MechOpt identified the failure mode, ranked sections by buckling FoS, and showed
+Modulus identified the failure mode, ranked sections by buckling FoS, and showed
 why hollow sections dominate. The next step for this strut is applying the AISC
 column curve to the intermediate-slenderness candidates and checking the base
 plate connection for rotational stiffness.

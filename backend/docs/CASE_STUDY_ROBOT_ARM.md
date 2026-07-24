@@ -33,7 +33,7 @@ FoS   = σ_y / σ_max
 
 ## The result
 
-MechOpt sweeps 20 mm, 30 mm, 40 mm, 50 mm sizes across all four section
+Modulus sweeps 20 mm, 30 mm, 40 mm, 50 mm sizes across all four section
 families and evaluates both constraints. The table below shows representative
 candidates in ascending order of section size. **PASS/FAIL applies to the
 deflection check; every candidate shown already meets FoS ≥ 2.0.**
@@ -146,7 +146,7 @@ control the final design:
   slightly along and transverse to the extrusion axis. For rolled bar stock, the
   values above are conservative in the extrusion direction.
 
-MechOpt's role here is screening: it found, from first principles, that this
+Modulus's role here is screening: it found, from first principles, that this
 configuration is stiffness-dominated and that hollow sections are the right
 family to pursue. The next step is a detailed finite-element model of the
 candidate link with the real joint and load conditions.

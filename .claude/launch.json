@@ -13,7 +13,7 @@
       "runtimeExecutable": "uv",
       "runtimeArgs": ["run", "--extra", "api", "python", "api.py"],
       "port": 8000,
-      "cwd": "mechopt"
+      "cwd": "backend"
     }
   ]
 }

@@ -22,4 +22,4 @@ frontend/dist
 .env
 .env.*
 *.md
-!mechopt/README.md
+!backend/README.md

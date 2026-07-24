@@ -1,4 +1,4 @@
-# MechOpt — Model Validation
+# Modulus — Model Validation
 
 The unit tests prove the code matches **my own** hand-derived equations. That is
 necessary but circular — it does not prove the equations themselves model reality.
@@ -7,7 +7,7 @@ This document closes that gap with two independent checks.
 Reproduce everything with:
 
 ```bash
-cd mechopt
+cd backend
 PYTHONPATH=. python validation/run_validation.py   # prints both tables, writes validation.png
 pytest tests/test_validation.py -v                  # asserts the FE/analytical agreement
 ```
@@ -20,7 +20,7 @@ pytest tests/test_validation.py -v                  # asserts the FE/analytical 
 
 `validation/fea_beam.py` is a from-scratch 1-D **finite-element beam solver**
 (direct-stiffness method, 2-node Hermite cubic elements, deflection + rotation
-DOFs per node). It shares **no code** with `mechopt/beam.py`; it assembles the
+DOFs per node). It shares **no code** with `modulus/beam.py`; it assembles the
 global stiffness matrix and solves `K d = F`, so the two methods are genuinely
 independent. Agreement therefore confirms the closed-form implementation is
 correct, not just self-consistent.
@@ -42,7 +42,7 @@ give.)
 
 ## Check 2 — What the model leaves out: Euler–Bernoulli vs. Timoshenko
 
-MechOpt uses **Euler–Bernoulli** beam theory, which ignores shear deformation.
+Modulus uses **Euler–Bernoulli** beam theory, which ignores shear deformation.
 The higher-fidelity **Timoshenko** theory adds a shear term, so the gap between
 them bounds the error introduced by that assumption. For a cantilever:
 
@@ -64,7 +64,7 @@ quadratically as the beam gets longer relative to its depth:
 | 40 | 0.05 % |
 
 **Result: for slender beams (L/h ≳ 15) the Euler–Bernoulli assumption costs
-< 0.4 %**, which is the regime MechOpt's sweep operates in. For stubby members
+< 0.4 %**, which is the regime Modulus's sweep operates in. For stubby members
 (L/h < 8) the error climbs past ~1 %, and the tool flags this in its Assumptions
 tab. This is the honest statement of the model's accuracy envelope.
 
@@ -76,6 +76,6 @@ tab. This is the honest statement of the model's accuracy envelope.
 - Physical-assumption error (no shear) quantified: **< 0.4 % for L/h ≳ 15**,
   rising for short beams — a known, bounded limitation, not a surprise.
 
-MechOpt remains a **first-pass screening tool**. It does not model buckling,
+Modulus remains a **first-pass screening tool**. It does not model buckling,
 stress concentrations, fatigue, welds, or contact, and is not a substitute for
 detailed FEA or review by a qualified engineer.

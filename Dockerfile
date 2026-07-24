@@ -27,14 +27,14 @@ ENV PYTHONUNBUFFERED=1 \
 WORKDIR /app
 
 # Install the Modulus engine + API extra (fastapi, uvicorn) from pyproject
-COPY mechopt/ ./mechopt/
-RUN pip install "./mechopt[api]"
+COPY backend/ ./backend/
+RUN pip install "./backend[api]"
 
-# Copy the built SPA to where api.py serves it (../frontend/build from mechopt/)
+# Copy the built SPA to where api.py serves it (../frontend/build from backend/)
 COPY --from=frontend /app/frontend/build ./frontend/build
 
-# api.py lives at the mechopt/ project root, next to pyproject.toml
-WORKDIR /app/mechopt
+# api.py lives at the backend/ project root, next to pyproject.toml
+WORKDIR /app/backend
 
 # Render/Fly/Railway inject $PORT; default to 8000 for local runs
 EXPOSE 8000

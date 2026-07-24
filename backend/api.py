@@ -4,7 +4,7 @@
 # production, serves the built React frontend from the same service. FastAPI and
 # uvicorn are declared under the optional "api" extra in pyproject.toml.
 #
-# Run locally (from the mechopt/ project directory):
+# Run locally (from the backend/ project directory):
 #   uvicorn api:app --reload --port 8000   # API only; run the SPA via `npm run dev`
 #   python api.py                          # convenience entry point (same server)
 #

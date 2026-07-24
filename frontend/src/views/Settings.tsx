@@ -243,7 +243,7 @@ export default function Settings() {
             <div className="settings__about-row">
               <span className="settings__about-key">GitHub</span>
               <span className="settings__about-val settings__about-val--mono">
-                github.com/Aaditya-Gupta24/MechOpt
+                github.com/Aaditya-Gupta24/Modulus
               </span>
             </div>
             <div className="settings__about-row">

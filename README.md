@@ -8,7 +8,7 @@ weight/cost/strength tradeoffs plotted. The analytical model is validated agains
 independent finite-element solver, and the whole thing ships as a React web app over a
 Python engine.
 
-[![CI](https://github.com/Aaditya-Gupta24/MechOpt/actions/workflows/ci.yml/badge.svg)](https://github.com/Aaditya-Gupta24/MechOpt/actions/workflows/ci.yml)
+[![CI](https://github.com/Aaditya-Gupta24/Modulus/actions/workflows/ci.yml/badge.svg)](https://github.com/Aaditya-Gupta24/Modulus/actions/workflows/ci.yml)
 ![Python](https://img.shields.io/badge/python-3.10%2B-blue)
 ![Tests](https://img.shields.io/badge/tests-354%20passing-brightgreen)
 ![Frontend](https://img.shields.io/badge/frontend-React%20%2B%20TypeScript-149eca)
@@ -16,9 +16,9 @@ Python engine.
 ![License](https://img.shields.io/badge/license-MIT-green)
 
 🔗 **Live demo** — not yet deployed; spin one up in ~5 min with **[DEPLOY.md](DEPLOY.md)**, then drop the URL here
-&nbsp;·&nbsp; 📐 **[Case study](mechopt/docs/CASE_STUDY.md)**
-&nbsp;·&nbsp; 🧪 **[Validation report](mechopt/validation/VALIDATION.md)**
-&nbsp;·&nbsp; 📄 **[Engineering spec](mechopt/SPEC.md)**
+&nbsp;·&nbsp; 📐 **[Case study](backend/docs/CASE_STUDY.md)**
+&nbsp;·&nbsp; 🧪 **[Validation report](backend/validation/VALIDATION.md)**
+&nbsp;·&nbsp; 📄 **[Engineering spec](backend/SPEC.md)**
 
 ---
 
@@ -47,7 +47,7 @@ Python engine.
 
 |                                                        |                                                    |
 | ------------------------------------------------------ | -------------------------------------------------- |
-| ![Validation: analytical vs FE](mechopt/validation/validation.png) | ![Pareto front](mechopt/docs/pareto.png) |
+| ![Validation: analytical vs FE](backend/validation/validation.png) | ![Pareto front](backend/docs/pareto.png) |
 | Analytical deflections vs. an independent FE solver    | Weight–cost Pareto front for a beam sweep          |
 
 > _App screenshots (Dashboard, Beam Optimizer, Bracket Analysis) go in `docs/media/` —
@@ -103,7 +103,7 @@ P = 300 N cantilever → I = 6.75×10⁻⁸ m⁴, σ ≈ 53.3 MPa, δ ≈ 3.79 m
 
 Passing tests only prove the code matches *my* equations. To check the equations
 themselves, Modulus is validated two independent ways
-([full report](mechopt/validation/VALIDATION.md)):
+([full report](backend/validation/VALIDATION.md)):
 
 - **Against an independent FE solver.** `validation/fea_beam.py` is a from-scratch 1-D
   finite-element beam solver (direct stiffness, Hermite cubic elements) that shares no code
@@ -120,7 +120,7 @@ Two terminals. The engine uses [`uv`](https://docs.astral.sh/uv/); the frontend 
 **API + engine**
 
 ```bash
-cd mechopt
+cd backend
 uv run --extra api python api.py        # http://localhost:8000
 ```
 
@@ -136,15 +136,15 @@ npm run dev                             # http://localhost:5173  (proxies /api �
 
 ```bash
 cd frontend && npm run build
-cd ../mechopt && uv run --extra api uvicorn api:app --port 8000   # http://localhost:8000
+cd ../backend && uv run --extra api uvicorn api:app --port 8000   # http://localhost:8000
 ```
 
-No `uv`? Use pip: `cd mechopt && pip install -e ".[api]" && python api.py`.
+No `uv`? Use pip: `cd backend && pip install -e ".[api]" && python api.py`.
 
 ## Tests
 
 ```bash
-cd mechopt
+cd backend
 uv run --extra dev pytest -q            # 354 passing
 ```
 
@@ -158,7 +158,7 @@ suite and a frontend type-check + build on every push.
 .
 ├── frontend/            React + TypeScript SPA (Vite)
 │   └── src/views/       Dashboard, Beam Optimizer, Bracket Analysis, Compare, Validation…
-├── mechopt/             Python project root
+├── backend/             Python project root
 │   ├── modulus/         core engine (mechanics, optimizer, decision, uncertainty, report…)
 │   ├── validation/      independent FE solver + validation report
 │   ├── tests/           354 hand-derived known-answer + behavioural tests
