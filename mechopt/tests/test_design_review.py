@@ -10,8 +10,8 @@ Oracle derivations are documented inline next to each assertion.
 """
 
 import pytest
-from mechopt.optimizer import evaluate_candidates, recommend
-from mechopt.design_review import generate_review, DesignReview, SensitivityResult
+from modulus.optimizer import evaluate_candidates, recommend
+from modulus.design_review import generate_review, DesignReview, SensitivityResult
 
 
 # ---------------------------------------------------------------------------

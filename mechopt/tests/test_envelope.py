@@ -1,7 +1,7 @@
 """Load-case envelope tests — oracle-first known-answer cases."""
 
 import pytest
-from mechopt.envelope import evaluate_envelope, EnvelopeResult, EnvelopeCase
+from modulus.envelope import evaluate_envelope, EnvelopeResult, EnvelopeCase
 
 
 # Steel A36 rectangle 30x30mm

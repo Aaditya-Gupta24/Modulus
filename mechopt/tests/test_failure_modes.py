@@ -8,9 +8,9 @@ Oracle derivations are documented inline next to each assertion.
 """
 
 import pytest
-from mechopt import sections
-from mechopt.materials import MATERIALS
-from mechopt.failure_modes import (
+from modulus import sections
+from modulus.materials import MATERIALS
+from modulus.failure_modes import (
     CheckResult,
     SafetyCase,
     Status,
@@ -351,7 +351,7 @@ def test_warning_status():
 
 def test_optimizer_attaches_safety_case():
     """evaluate_candidates attaches a SafetyCase to every row."""
-    from mechopt.optimizer import evaluate_candidates
+    from modulus.optimizer import evaluate_candidates
     df = evaluate_candidates(
         load=300.0, length=0.8, load_case="cantilever_end", fos_target=1.5,
         material_keys=["steel_a36"], section_types=["rectangle"],
@@ -372,7 +372,7 @@ def test_optimizer_attaches_safety_case():
 
 def test_safety_case_matches_oracle_beam_a():
     """SafetyCase for steel rect 30x30 in optimizer output matches Beam A oracle."""
-    from mechopt.optimizer import evaluate_candidates
+    from modulus.optimizer import evaluate_candidates
     df = evaluate_candidates(
         load=300.0, length=0.8, load_case="cantilever_end", fos_target=1.5,
         material_keys=["steel_a36"], section_types=["rectangle"],
@@ -403,7 +403,7 @@ def test_safety_case_matches_oracle_beam_a():
 
 def test_safety_case_shear_modeled_in_optimizer():
     """Shear is now a real check in optimizer SafetyCase output."""
-    from mechopt.optimizer import evaluate_candidates
+    from modulus.optimizer import evaluate_candidates
     df = evaluate_candidates(
         load=300.0, length=0.8, load_case="cantilever_end", fos_target=1.5,
         material_keys=["steel_a36"], section_types=["rectangle"],

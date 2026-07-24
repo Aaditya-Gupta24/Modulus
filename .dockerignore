@@ -1,0 +1,25 @@
+# Keep the Docker build context small and reproducible.
+.git
+.github
+.claude
+.agents
+
+# Node / build outputs (frontend is built fresh inside the image)
+**/node_modules
+frontend/build
+frontend/dist
+
+# Python caches / envs / installed metadata
+**/__pycache__
+**/*.py[cod]
+**/.venv
+**/.uv-cache
+**/.pytest_cache
+**/*.egg-info
+
+# Local runtime + notes
+*.log
+.env
+.env.*
+*.md
+!mechopt/README.md

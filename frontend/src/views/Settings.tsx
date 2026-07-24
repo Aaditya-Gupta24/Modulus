@@ -224,7 +224,7 @@ export default function Settings() {
 
       {/* ── About ────────────────────────────────── */}
       <div className="settings__section-gap">
-        <Panel title="About MechOpt">
+        <Panel title="About Modulus">
           <div className="settings__about-rows">
             <div className="settings__about-row">
               <span className="settings__about-key">Version</span>

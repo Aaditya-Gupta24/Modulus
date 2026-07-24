@@ -8,8 +8,8 @@ Oracle derivations are documented inline next to each assert.
 
 import math
 import pytest
-from mechopt import sections, beam
-from mechopt.materials import MATERIALS
+from modulus import sections, beam
+from modulus.materials import MATERIALS
 
 # ---------------------------------------------------------------------------
 # Shared fixtures / setup helpers

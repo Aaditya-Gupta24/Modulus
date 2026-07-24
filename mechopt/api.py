@@ -1,15 +1,15 @@
-# MechOpt FastAPI JSON API layer
+# Modulus FastAPI JSON API layer
 #
-# Additional dependencies required (NOT in requirements.txt — install separately):
-#   pip install fastapi uvicorn[standard]
+# This thin layer wraps the Modulus engine (modulus/*) as a JSON API and, in
+# production, serves the built React frontend from the same service. FastAPI and
+# uvicorn are declared under the optional "api" extra in pyproject.toml.
 #
-# These are intentionally excluded from requirements.txt because that file is
-# consumed by Streamlit Cloud, which does not need FastAPI or uvicorn.
+# Run locally (from the mechopt/ project directory):
+#   uvicorn api:app --reload --port 8000   # API only; run the SPA via `npm run dev`
+#   python api.py                          # convenience entry point (same server)
 #
-# Run locally:
-#   cd mechopt && uvicorn api:app --reload --port 8000
-#   or:
-#   cd mechopt && python api.py
+# Production (single service): build the frontend so ../frontend/build exists,
+# then run `uvicorn api:app --host 0.0.0.0 --port $PORT`.
 
 import io
 import math
@@ -22,25 +22,25 @@ from fastapi.responses import JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
-from mechopt.materials import MATERIALS, Material
-from mechopt.sections import (
+from modulus.materials import MATERIALS, Material
+from modulus.sections import (
     rectangle, circle, i_beam, hollow_rectangle,
     square_tube, hollow_circle, SectionProps,
 )
-from mechopt.beam import max_moment, max_stress, max_deflection, factor_of_safety
-from mechopt.optimizer import evaluate_candidates, recommend
-from mechopt.decision import (
+from modulus.beam import max_moment, max_stress, max_deflection, factor_of_safety
+from modulus.optimizer import evaluate_candidates, recommend
+from modulus.decision import (
     rank_candidates, pareto_front, knee_point,
     classify_infeasible, explain_winner,
 )
-from mechopt.design_review import generate_review
-from mechopt.bracket import evaluate_bracket, compare_gussets, GUSSET_TYPES
-from mechopt.failure_modes import evaluate_candidate, CheckResult, SafetyCase, Status
-from mechopt.uncertainty import run_monte_carlo, reliability_summary
-from mechopt.envelope import evaluate_envelope
-from mechopt.stock import nearest_buyable, STOCK_DIMS_MM, BOLT_SIZES
-from mechopt.units import UnitSystem, convert_input, convert_output, unit_label, format_value
-from mechopt.report import export_report_bytes
+from modulus.design_review import generate_review
+from modulus.bracket import evaluate_bracket, compare_gussets, GUSSET_TYPES
+from modulus.failure_modes import evaluate_candidate, CheckResult, SafetyCase, Status
+from modulus.uncertainty import run_monte_carlo, reliability_summary
+from modulus.envelope import evaluate_envelope
+from modulus.stock import nearest_buyable, STOCK_DIMS_MM, BOLT_SIZES
+from modulus.units import UnitSystem, convert_input, convert_output, unit_label, format_value
+from modulus.report import export_report_bytes
 
 # ---------------------------------------------------------------------------
 # Section function registry
@@ -60,9 +60,9 @@ SECTION_FNS = {
 # ---------------------------------------------------------------------------
 
 app = FastAPI(
-    title="MechOpt API",
+    title="Modulus API",
     description=(
-        "JSON API layer over the MechOpt mechanical design optimisation engine. "
+        "JSON API layer over the Modulus mechanical design optimisation engine. "
         "All mechanics live in the engine modules — this file only wraps them."
     ),
     version="0.1.0",
@@ -162,8 +162,8 @@ def _df_to_records(df) -> list[dict]:
 # built frontend the API still operates normally.
 import os as _os
 _frontend_dir = _os.path.join(_os.path.dirname(__file__), "..", "frontend", "build")
-if _os.path.isdir(_frontend_dir):
-    app.mount("/static", StaticFiles(directory=_frontend_dir), name="static")
+# The built SPA is mounted at the very end of this file (after every /api route)
+# so that the API always takes precedence over the static catch-all.
 
 
 # ===========================================================================
@@ -865,7 +865,7 @@ def stock_nearest_buyable(req: StockNearestRequest):
 
     # Build section properties for the theoretical design so we can populate
     # weight, cost, I, fos for the original dict.
-    from mechopt.optimizer import _section_config
+    from modulus.optimizer import _section_config
     d = d_mm / 1000.0
     config = _section_config(sec, d, d_mm)
     if config is None:
@@ -936,10 +936,10 @@ _EXPORT_MEDIA_TYPES = {
 }
 
 _EXPORT_FILENAMES = {
-    "csv":  "mechopt_report.csv",
-    "json": "mechopt_report.json",
-    "text": "mechopt_report.txt",
-    "pdf":  "mechopt_report.pdf",
+    "csv":  "modulus_report.csv",
+    "json": "modulus_report.json",
+    "text": "modulus_report.txt",
+    "pdf":  "modulus_report.pdf",
 }
 
 
@@ -1015,20 +1015,14 @@ def export_report(req: ExportRequest):
 
 
 # ===========================================================================
-# Catch-all: serve React SPA index.html for any unmatched route
-# (only registered when the build directory exists)
+# Static SPA: serve the built React app for all non-/api routes.
+# Mounted last so the API routes above win. html=True serves index.html at "/"
+# and resolves the hashed /assets/* files, giving a single-service deployment.
+# Guarded so the API still runs (tests, dev) when the frontend isn't built.
 # ===========================================================================
 
 if _os.path.isdir(_frontend_dir):
-    _index_path = _os.path.join(_frontend_dir, "index.html")
-
-    @app.get("/{full_path:path}")
-    async def serve_spa(full_path: str):
-        if _os.path.isfile(_index_path):
-            with open(_index_path, "rb") as fh:
-                content = fh.read()
-            return Response(content=content, media_type="text/html")
-        raise HTTPException(status_code=404, detail="Frontend build not found.")
+    app.mount("/", StaticFiles(directory=_frontend_dir, html=True), name="spa")
 
 
 # ===========================================================================

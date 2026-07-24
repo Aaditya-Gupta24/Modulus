@@ -2,7 +2,7 @@
 
 import math
 import pytest
-from mechopt.bracket import (
+from modulus.bracket import (
     rectangular_plate_props,
     bracket_plate_stress,
     bracket_plate_deflection,
@@ -16,7 +16,7 @@ from mechopt.bracket import (
     GUSSET_TYPES,
     GussetSpec,
 )
-from mechopt.materials import MATERIALS
+from modulus.materials import MATERIALS
 
 
 def test_rectangular_plate_props():

@@ -1,7 +1,7 @@
 """Material database tests."""
 
 import pytest
-from mechopt.materials import MATERIALS, Material
+from modulus.materials import MATERIALS, Material
 
 EXPECTED_KEYS = [
     "aluminum_6061", "steel_a36", "pla",

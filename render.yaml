@@ -1,0 +1,15 @@
+# Render Blueprint — one web service that builds the frontend and serves the
+# SPA + API from a single container. Deploy by pointing Render at this repo:
+# New + -> Blueprint -> pick the repo. Render reads this file automatically.
+#
+# The free plan spins the service down after ~15 min idle; the first request
+# afterwards cold-starts in ~30-60 s. Fine for a portfolio demo.
+services:
+  - type: web
+    name: modulus
+    runtime: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /
+    autoDeploy: true

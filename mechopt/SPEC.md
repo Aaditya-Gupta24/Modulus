@@ -1,6 +1,14 @@
-# MechOpt — Project Specification
+# Modulus — Original Specification (v1, historical)
 
-This document is the implementation contract for MechOpt. Tests in `tests/` are
+> **Provenance note.** This is the original v1 design spec, from when the project
+> was a Streamlit prototype named *MechOpt*. It is retained to document how the
+> project evolved. The engine has since grown well beyond this scope (multi-mode
+> safety cases, Pareto/knee-point decision logic, Monte Carlo reliability,
+> load-case envelopes, stock matching, an independent FE validator) and the UI is
+> now a React + FastAPI app. For the current architecture and feature set, see the
+> top-level `README.md`. Below is preserved as written.
+
+This document is the implementation contract for the v1 tool. Tests in `tests/` are
 the oracle. This spec explains the engineering and software architecture behind
 them. An automated coding agent or human should be able to implement the full
 app from this document alone.

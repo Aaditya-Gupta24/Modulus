@@ -1,7 +1,7 @@
 """Optimizer / recommendation tests (behavioral, not exact-value)."""
 
 import pytest
-from mechopt import optimizer
+from modulus import optimizer
 
 EXPECTED_COLS = {
     "material", "section", "dims", "area", "I", "weight",

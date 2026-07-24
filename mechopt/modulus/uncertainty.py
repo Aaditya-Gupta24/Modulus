@@ -1,4 +1,4 @@
-"""Monte Carlo / uncertainty analysis for MechOpt (Milestone H).
+"""Monte Carlo / uncertainty analysis for Modulus (Milestone H).
 
 Runs Monte Carlo simulations on a single beam design by perturbing input
 parameters according to specified coefficients of variation (CoV), then

@@ -1,4 +1,4 @@
-"""Golden + structural tests for the SVG diagram generators (mechopt.visuals).
+"""Golden + structural tests for the SVG diagram generators (modulus.visuals).
 
 ``render_beam_svg`` and ``render_bracket_svg`` are deterministic string builders,
 so these are snapshot tests: we pin each render's exact output in a checked-in
@@ -20,8 +20,8 @@ from pathlib import Path
 
 import pytest
 
-from mechopt.visuals.beam_svg import render_beam_svg
-from mechopt.visuals.bracket_svg import render_bracket_svg
+from modulus.visuals.beam_svg import render_beam_svg
+from modulus.visuals.bracket_svg import render_bracket_svg
 
 GOLDEN_PATH = Path(__file__).parent / "data" / "visuals_golden.json"
 SVG_ROOT = "{http://www.w3.org/2000/svg}svg"

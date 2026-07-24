@@ -2,7 +2,7 @@
 
 Direct-stiffness method with 2-node Hermite cubic elements (DOFs: transverse
 deflection w and rotation theta at each node). This module deliberately shares
-NO code with mechopt.beam -- it solves K d = F from first principles so it can
+NO code with modulus.beam -- it solves K d = F from first principles so it can
 serve as an INDEPENDENT cross-check of the closed-form analytical model.
 """
 import numpy as np

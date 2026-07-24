@@ -2,7 +2,7 @@
 
 import pytest
 import numpy as np
-from mechopt.uncertainty import run_monte_carlo, MonteCarloResult, reliability_summary
+from modulus.uncertainty import run_monte_carlo, MonteCarloResult, reliability_summary
 
 
 def test_returns_correct_type():

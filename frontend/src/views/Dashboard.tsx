@@ -140,7 +140,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
           animate="visible"
         >
           <motion.h1 className="dash-wordmark" variants={fadeUp}>
-            MechOpt
+            Modulus
           </motion.h1>
 
           <motion.p className="dash-tag" variants={fadeUp}>
@@ -252,7 +252,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
           </div>
           <div className="dash-readout__item">
             <span className="dash-readout__label">Tests</span>
-            <span className="dash-readout__val dash-readout__val--pass">362 passing</span>
+            <span className="dash-readout__val dash-readout__val--pass">354 passing</span>
           </div>
           <div className="dash-readout__item">
             <span className="dash-readout__label">Engine</span>

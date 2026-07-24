@@ -2,7 +2,7 @@
 
 import math
 import pytest
-from mechopt import sections
+from modulus import sections
 
 
 def test_rectangle():

@@ -5,8 +5,8 @@ independently and should be checked by hand before trusting any implementation.
 """
 
 import pytest
-from mechopt import sections, beam
-from mechopt.materials import MATERIALS
+from modulus import sections, beam
+from modulus.materials import MATERIALS
 
 
 def test_case_A_steel_square_cantilever():

@@ -7,10 +7,10 @@ import tempfile
 import pytest
 import pandas as pd
 
-from mechopt.optimizer import evaluate_candidates, recommend
-from mechopt.decision import rank_candidates
-from mechopt.design_review import generate_review
-from mechopt.report import (
+from modulus.optimizer import evaluate_candidates, recommend
+from modulus.decision import rank_candidates
+from modulus.design_review import generate_review
+from modulus.report import (
     export_csv,
     export_json,
     generate_text_report,
@@ -124,7 +124,7 @@ def test_text_report_contains_sections(analysis):
     assert "RECOMMENDED DESIGN" in text
     assert "FAILURE-MODE TABLE" in text
     assert "LIMITATIONS" in text
-    assert "MechOpt" in text
+    assert "Modulus" in text
 
 
 def test_text_report_contains_problem_values(analysis):
@@ -162,7 +162,7 @@ def test_export_bytes_text_returns_bytes(analysis):
     df, review, problem, priority = analysis
     data = export_report_bytes(df, review, problem, priority, "text")
     assert isinstance(data, bytes)
-    assert b"MechOpt" in data
+    assert b"Modulus" in data
 
 
 def test_export_bytes_pdf_returns_bytes(analysis):

@@ -1,8 +1,43 @@
+# --- Node / frontend ---
 node_modules/
 frontend/node_modules/
 frontend/build/
+frontend/dist/
+
+# --- Python ---
 __pycache__/
-*.pyc
-*.pyo
-.env
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ipynb_checkpoints/
+.uv-cache/
+build/
+dist/
+
+# --- Virtual envs ---
+.venv/
+venv/
+env/
+
+# --- Runtime / logs / secrets ---
 *.log
+.env
+.env.*
+!.env.example
+
+# --- Streamlit (legacy) runtime ---
+.streamlit/secrets.toml
+
+# --- OS / editor ---
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# --- Local-only working notes (kept on disk, not committed) ---
+IMPROVEMENT_PLAN.md
+LOOPED_PROMPT.md
+MECHOPT_VISUAL_UI_REFERENCE_AND_IMPROVEMENT_PLAN.md
+PROJECT_CONTEXT.md
+mechopt/IMPROVEMENTS.md
+mechopt/TEST_LOOP.md

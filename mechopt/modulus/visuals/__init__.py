@@ -1,4 +1,4 @@
-"""UI-only visual components for MechOpt (Streamlit front end).
+"""UI-only visual components for Modulus (React front end).
 
 Nothing in this package performs engineering calculations — it only renders
 numbers that are already computed by the engine modules (beam.py, bracket.py,

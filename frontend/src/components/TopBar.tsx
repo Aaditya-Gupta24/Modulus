@@ -43,7 +43,7 @@ export default function TopBar({
     <header className="topbar">
       {/* Left: brand mark + view title */}
       <div className="topbar__left">
-        <div className="topbar__brand" aria-label="MechOpt">
+        <div className="topbar__brand" aria-label="Modulus">
           <svg viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg" className="topbar__hex" aria-hidden="true">
             <polygon
               points="11,1 20,6.5 20,15.5 11,21 2,15.5 2,6.5"

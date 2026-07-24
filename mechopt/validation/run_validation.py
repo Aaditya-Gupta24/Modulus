@@ -2,8 +2,8 @@
 import numpy as np, matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
-from mechopt import sections, beam
-from mechopt.materials import MATERIALS
+from modulus import sections, beam
+from modulus.materials import MATERIALS
 from validation.fea_beam import solve as fe_solve
 
 NU = 0.3  # Poisson's ratio (steel/aluminium ~0.3)

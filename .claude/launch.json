@@ -10,8 +10,8 @@
     },
     {
       "name": "api",
-      "runtimeExecutable": "python",
-      "runtimeArgs": ["api.py"],
+      "runtimeExecutable": "uv",
+      "runtimeArgs": ["run", "--extra", "api", "python", "api.py"],
       "port": 8000,
       "cwd": "mechopt"
     }

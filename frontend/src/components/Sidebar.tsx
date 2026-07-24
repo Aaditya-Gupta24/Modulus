@@ -137,7 +137,7 @@ export default function Sidebar({ activeView, onNavigate }: SidebarProps) {
             />
             <text x="14" y="17.5" textAnchor="middle" fontFamily="Inter, sans-serif" fontSize="9" fontWeight="700" fill="var(--accent)">M</text>
           </svg>
-          <span className="sidebar__brand-name">MechOpt</span>
+          <span className="sidebar__brand-name">Modulus</span>
         </div>
 
         {/* Top nav */}

@@ -11,8 +11,8 @@ Oracle derivations are documented inline next to each assertion.
 
 import pytest
 import pandas as pd
-from mechopt.failure_modes import SafetyCase, CheckResult, Status
-from mechopt.decision import (
+from modulus.failure_modes import SafetyCase, CheckResult, Status
+from modulus.decision import (
     rank_candidates,
     pareto_front,
     knee_point,

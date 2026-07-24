@@ -1,4 +1,4 @@
-"""Oracle-first unit-conversion tests for mechopt.units.
+"""Oracle-first unit-conversion tests for modulus.units.
 
 All numeric targets are derived from hand-checked equations using the module's
 documented constants:
@@ -17,7 +17,7 @@ No target here was produced by running the implementation first.
 """
 
 import pytest
-from mechopt.units import (
+from modulus.units import (
     UnitSystem,
     convert_input,
     convert_output,

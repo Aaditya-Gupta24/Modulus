@@ -14,8 +14,8 @@ import math
 
 import pytest
 
-from mechopt import buckling
-from mechopt.sections import rectangle
+from modulus import buckling
+from modulus.sections import rectangle
 
 E_STEEL = 200e9
 SQ = rectangle(0.030, 0.030)  # I = 6.75e-8, A = 9e-4

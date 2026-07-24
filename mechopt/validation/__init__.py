@@ -1,1 +1,1 @@
-"""Independent validation of the MechOpt analytical model."""
+"""Independent validation of the Modulus analytical model."""

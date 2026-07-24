@@ -34,8 +34,8 @@ nearest_buyable oracle (Steel A36 rectangle, P=500 N, L=1.0 m, cantilever_end):
 import numpy as np
 import pytest
 
-from mechopt import optimizer
-from mechopt.stock import (
+from modulus import optimizer
+from modulus.stock import (
     BOLT_SIZES,
     STOCK_DIMS_MM,
     WALL_THICKNESSES_MM,

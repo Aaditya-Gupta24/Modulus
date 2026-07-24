@@ -7,8 +7,8 @@ is hardcoded here, so it stays valid even if the inputs change.
 """
 import pytest
 
-from mechopt import sections, beam
-from mechopt.materials import MATERIALS
+from modulus import sections, beam
+from modulus.materials import MATERIALS
 from validation.fea_beam import solve as fe_solve
 
 CASES = [

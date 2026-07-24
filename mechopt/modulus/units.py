@@ -1,6 +1,6 @@
 """Unit conversion IO layer.
 
-All internal computation in MechOpt is SI (m, Pa, kg, N).
+All internal computation in Modulus is SI (m, Pa, kg, N).
 This module handles:
   - Input conversion: user-supplied values → SI
   - Output conversion: SI values → user display units
