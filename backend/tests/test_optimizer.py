@@ -62,3 +62,18 @@ def test_no_safe_design_raises():
 
     with pytest.raises(ValueError):
         optimizer.recommend(df, "balanced")
+
+
+@pytest.mark.parametrize("materials,sections", [
+    ([], ["rectangle"]),
+    (["steel_a36"], []),
+    ([], []),
+])
+def test_empty_selection_raises(materials, sections):
+    # An empty material or section selection must raise (not yield a
+    # column-less DataFrame that 500s downstream on df["safe"]).
+    with pytest.raises(ValueError):
+        optimizer.evaluate_candidates(
+            load=500.0, length=1.0, load_case="cantilever_end", fos_target=2.0,
+            material_keys=materials, section_types=sections,
+        )

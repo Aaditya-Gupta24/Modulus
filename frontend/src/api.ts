@@ -9,7 +9,19 @@ async function apiFetch<T>(path: string, body?: unknown): Promise<T> {
       }
     : { method: 'GET' };
   const res = await fetch(`${API_BASE}${path}`, opts);
-  if (!res.ok) throw new Error(`API error: ${res.status}`);
+  if (!res.ok) {
+    // Surface the FastAPI `detail` message when present, so the UI shows the
+    // real reason (e.g. "Select at least one material…") instead of a bare code.
+    let message = `Request failed (${res.status})`;
+    try {
+      const data = await res.json();
+      if (typeof data?.detail === 'string') message = data.detail;
+      else if (data?.detail) message = JSON.stringify(data.detail);
+    } catch {
+      /* non-JSON error body — keep the status message */
+    }
+    throw new Error(message);
+  }
   return res.json() as Promise<T>;
 }
 

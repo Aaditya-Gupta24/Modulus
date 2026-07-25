@@ -3,6 +3,7 @@ import Panel from '../components/Panel';
 import StatusPill from '../components/StatusPill';
 import MarginMeter from '../components/MarginMeter';
 import { api } from '../api';
+import { saveBeamProblem } from '../store';
 import './View.css';
 import './BeamOptimizer.css';
 
@@ -161,6 +162,24 @@ function fmtSI(n: number | undefined | null, unit: string, decimals = 2): string
   if (Math.abs(n) >= 1e6)  return `${(n / 1e6).toFixed(decimals)} M${unit}`;
   if (Math.abs(n) >= 1e3)  return `${(n / 1e3).toFixed(decimals)} k${unit}`;
   return `${n.toFixed(decimals)} ${unit}`;
+}
+
+// Deflection arrives in metres; show it in mm (the useful scale for beams).
+function fmtLength(m: number | undefined | null): string {
+  if (m == null || !isFinite(m)) return 'N/A';
+  const mm = m * 1000;
+  if (Math.abs(mm) >= 1000) return `${(mm / 1000).toFixed(2)} m`;
+  return `${mm.toFixed(mm !== 0 && Math.abs(mm) < 10 ? 3 : 2)} mm`;
+}
+
+// A safety-case check's actual/allowable unit depends on the check: stress
+// checks are in Pa, deflection is a length, and the rest are dimensionless
+// factor-of-safety / slenderness ratios.
+function fmtCheckValue(name: string, value: number | undefined | null): string {
+  if (value == null || !isFinite(value)) return '—';
+  if (name === 'bending_stress') return fmtSI(value, 'Pa');
+  if (name === 'deflection')     return fmtLength(value);
+  return value.toFixed(2);
 }
 
 function checkLabel(name: string): string {
@@ -534,8 +553,8 @@ function SafetyCaseTable({ checks, animate = true }: SafetyCaseTableProps) {
             : undefined}
         >
           <span className="beam-sct__check-name">{checkLabel(row.name)}</span>
-          <span className="mono">{fmtSI(row.actual, 'Pa')}</span>
-          <span className="mono">{fmtSI(row.allowable, 'Pa')}</span>
+          <span className="mono">{row.status === 'not_modeled' ? '—' : fmtCheckValue(row.name, row.actual)}</span>
+          <span className="mono">{row.status === 'not_modeled' ? '—' : fmtCheckValue(row.name, row.allowable)}</span>
           <div className="beam-sct__margin-cell">
             <MarginMeter
               margin={row.margin}
@@ -1110,6 +1129,18 @@ export default function BeamOptimizer() {
       stock_mode: stockMode,
     };
 
+    // Persist the problem so the Compare view can reflect this run.
+    saveBeamProblem({
+      load,
+      length,
+      load_case: loadCase,
+      fos_target: fosTarget,
+      deflection_limit: deflectionLimit / 1000,
+      material_keys: selectedMaterials,
+      section_types: selectedSections,
+      stock_mode: stockMode,
+    });
+
     try {
       const [recommend, rank, pareto, review] = await Promise.all([
         api.beamRecommend(body) as Promise<RecommendResult>,
@@ -1316,7 +1347,7 @@ export default function BeamOptimizer() {
               <HeroMetric label="Weight"     value={fmt(rec.weight, 3)}     unit="kg" />
               <HeroMetric label="Cost"       value={`$${fmt(rec.cost, 2)}`} />
               <HeroMetric label="Stress"     value={fmtSI(rec.stress, 'Pa')} />
-              <HeroMetric label="Deflection" value={fmtSI(rec.deflection, 'm')} />
+              <HeroMetric label="Deflection" value={fmtLength(rec.deflection)} />
             </div>
             {results.review?.why_it_won && (
               <p className="beam-hero__why">{results.review.why_it_won}</p>

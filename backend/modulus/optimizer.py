@@ -101,6 +101,10 @@ def evaluate_candidates(load: float, length: float, load_case: str,
         material_keys = list(MATERIALS.keys())
     if section_types is None:
         section_types = ["rectangle", "circle"]
+    if not material_keys or not section_types:
+        raise ValueError(
+            "Select at least one material and one cross-section to evaluate."
+        )
 
     # Buckling effective-length factor depends on load case.
     K = 2.0 if load_case == "cantilever_end" else 1.0
@@ -160,7 +164,12 @@ def evaluate_candidates(load: float, length: float, load_case: str,
                     "safety_case": safety_case,
                 })
 
-    return pd.DataFrame(rows)
+    # Always carry the full column schema so downstream `df["safe"]` access is
+    # safe even when the sweep yields no rows (e.g. all geometries invalid).
+    return pd.DataFrame(rows, columns=[
+        "material", "section", "dims", "area", "I", "weight", "cost",
+        "stress", "deflection", "fos", "safe", "safety_case",
+    ])
 
 
 def recommend(df: pd.DataFrame, priority: str = "balanced") -> pd.Series:

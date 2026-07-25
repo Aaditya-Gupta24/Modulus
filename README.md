@@ -10,7 +10,7 @@ Python engine.
 
 [![CI](https://github.com/Aaditya-Gupta24/Modulus/actions/workflows/ci.yml/badge.svg)](https://github.com/Aaditya-Gupta24/Modulus/actions/workflows/ci.yml)
 ![Python](https://img.shields.io/badge/python-3.10%2B-blue)
-![Tests](https://img.shields.io/badge/tests-354%20passing-brightgreen)
+![Tests](https://img.shields.io/badge/tests-357%20passing-brightgreen)
 ![Frontend](https://img.shields.io/badge/frontend-React%20%2B%20TypeScript-149eca)
 ![API](https://img.shields.io/badge/api-FastAPI-009688)
 ![License](https://img.shields.io/badge/license-MIT-green)
@@ -145,7 +145,7 @@ No `uv`? Use pip: `cd backend && pip install -e ".[api]" && python api.py`.
 
 ```bash
 cd backend
-uv run --extra dev pytest -q            # 354 passing
+uv run --extra dev pytest -q            # 357 passing
 ```
 
 Tests are the correctness oracle: every numeric target is **hand-derived from the governing
@@ -161,7 +161,7 @@ suite and a frontend type-check + build on every push.
 ├── backend/             Python project root
 │   ├── modulus/         core engine (mechanics, optimizer, decision, uncertainty, report…)
 │   ├── validation/      independent FE solver + validation report
-│   ├── tests/           354 hand-derived known-answer + behavioural tests
+│   ├── tests/           357 hand-derived known-answer + behavioural tests
 │   ├── docs/            engineering case studies
 │   ├── api.py           FastAPI layer (also serves the built SPA in production)
 │   └── SPEC.md          build contract / engineering spec

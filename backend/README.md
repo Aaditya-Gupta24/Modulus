@@ -23,7 +23,7 @@ built React SPA from the same origin (single-service deployment).
 
 ```bash
 uv run --extra api python api.py         # API at http://localhost:8000
-uv run --extra dev pytest -q             # 354 passing
+uv run --extra dev pytest -q             # 357 passing
 uv run python validation/run_validation.py   # reproduce the FE validation report
 ```
 
