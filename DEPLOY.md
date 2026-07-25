@@ -87,31 +87,33 @@ Commit and push — done.
 
 ---
 
-## 4. Hugging Face Spaces (free, no card, stays warm ~48 h)
+## 4. Hugging Face Spaces (recommended free host — no card, ~48 h warm)
 
-Good when you want the link reliably awake for people clicking it off your CV.
+Best for a CV link: free CPU Basic Spaces get **16 GB RAM / 2 vCPU** and only sleep
+after ~48 h idle (adjustable in the Space settings). Modulus is CPU-only, so the
+free tier runs it fully — no Pro needed.
 
-1. Create a Space at <https://huggingface.co/new-space> → **SDK: Docker** → blank.
-   HF makes a small git repo with a `README.md` that has a YAML header.
-2. Edit that Space `README.md` header so HF routes to our server's port:
-   ```yaml
-   ---
-   title: Modulus
-   emoji: 🔩
-   sdk: docker
-   app_port: 8000
-   ---
-   ```
-   (Our `Dockerfile` already listens on `8000` by default, so nothing else changes.)
-3. Push this project into the Space repo (from your clone of it):
+A ready Space README with the required Docker/port front-matter is checked in at
+[`deploy/huggingface/README.md`](deploy/huggingface/README.md). It stays out of the
+GitHub landing page and only configures the Space.
+
+1. **Log in once:** `pip install -U "huggingface_hub[cli]"` then `hf auth login`
+   (paste a **write** token from <https://huggingface.co/settings/tokens>). This
+   also sets the git credential used to push.
+2. **Create the Space:** <https://huggingface.co/new-space> → name `modulus` →
+   **SDK: Docker** → **Blank** → Create.
+3. **Populate it** from your clone of this repo (run in Git Bash, from the repo root):
    ```bash
-   git remote add space https://huggingface.co/spaces/<your-user>/modulus
-   git push space master:main
+   git clone https://huggingface.co/spaces/<your-user>/modulus ../modulus-space
+   cp deploy/huggingface/README.md ../modulus-space/README.md
+   cp Dockerfile .dockerignore ../modulus-space/
+   cp -r backend frontend ../modulus-space/
+   cd ../modulus-space && git add -A && git commit -m "Deploy Modulus" && git push
    ```
-   HF builds the Docker image and serves it at
-   `https://<your-user>-modulus.hf.space`.
+4. HF builds the image (first build ~5–8 min) and serves it at
+   `https://<your-user>-modulus.hf.space`. Update the demo link (Section 3).
 
-Then update the README demo link as in Section 3.
+To ship later changes, re-run the `cp` commands and `git push` from the Space clone.
 
 ---
 
