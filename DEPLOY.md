@@ -5,7 +5,20 @@ the React frontend, then the FastAPI service serves that build **and** the JSON 
 from the same origin. No CORS, no second service, one URL.
 
 Because it's a plain Docker image, it runs unchanged on Render, Fly.io, Railway,
-Google Cloud Run, or your own box. Steps below use **Render** (free, no card).
+Google Cloud Run, or your own box.
+
+## Which host? (free, no credit card)
+
+| Host | Free? | Card? | Sleeps | Best for |
+| ---- | ----- | ----- | ------ | -------- |
+| **Render** (recommended) | ✅ | ❌ none | after ~15 min idle (~30–60 s cold start) | simplest — `render.yaml` is ready, ~3 clicks |
+| **Hugging Face Spaces** | ✅ | ❌ none | after ~48 h idle | a link that stays warm between interviews |
+| Fly.io | free allowance | ✅ required | configurable | snappier cold starts |
+| Railway | trial credit | ✅ after trial | no | quick Docker deploys |
+
+**Recommendation:** deploy on **Render** to get a free live URL fastest (Section 2).
+If you want it to stay awake longer for a link you'll share on a CV, use
+**Hugging Face Spaces** (Section 4). Both are free and need no card.
 
 ---
 
@@ -74,7 +87,35 @@ Commit and push — done.
 
 ---
 
-## Alternatives
+## 4. Hugging Face Spaces (free, no card, stays warm ~48 h)
+
+Good when you want the link reliably awake for people clicking it off your CV.
+
+1. Create a Space at <https://huggingface.co/new-space> → **SDK: Docker** → blank.
+   HF makes a small git repo with a `README.md` that has a YAML header.
+2. Edit that Space `README.md` header so HF routes to our server's port:
+   ```yaml
+   ---
+   title: Modulus
+   emoji: 🔩
+   sdk: docker
+   app_port: 8000
+   ---
+   ```
+   (Our `Dockerfile` already listens on `8000` by default, so nothing else changes.)
+3. Push this project into the Space repo (from your clone of it):
+   ```bash
+   git remote add space https://huggingface.co/spaces/<your-user>/modulus
+   git push space master:main
+   ```
+   HF builds the Docker image and serves it at
+   `https://<your-user>-modulus.hf.space`.
+
+Then update the README demo link as in Section 3.
+
+---
+
+## Alternatives (require a credit card on file)
 
 **Fly.io** (no idle sleep on the free allowance; needs a card on file):
 
