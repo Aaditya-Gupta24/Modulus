@@ -1,4 +1,9 @@
-const API_BASE = '/api';
+// Same-origin "/api" by default (single-service deploy). For a split deploy —
+// e.g. an HF static frontend calling a separately hosted API — build with
+// VITE_API_URL set to that API's origin (the app then requests `${VITE_API_URL}/api`).
+const API_BASE = import.meta.env.VITE_API_URL
+  ? `${import.meta.env.VITE_API_URL.replace(/\/$/, '')}/api`
+  : '/api';
 
 async function apiFetch<T>(path: string, body?: unknown): Promise<T> {
   const opts: RequestInit = body

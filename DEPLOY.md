@@ -9,16 +9,21 @@ Google Cloud Run, or your own box.
 
 ## Which host? (free, no credit card)
 
-| Host | Free? | Card? | Sleeps | Best for |
-| ---- | ----- | ----- | ------ | -------- |
-| **Render** (recommended) | ✅ | ❌ none | after ~15 min idle (~30–60 s cold start) | simplest — `render.yaml` is ready, ~3 clicks |
-| **Hugging Face Spaces** | ✅ | ❌ none | after ~48 h idle | a link that stays warm between interviews |
-| Fly.io | free allowance | ✅ required | configurable | snappier cold starts |
-| Railway | trial credit | ✅ after trial | no | quick Docker deploys |
+Two shapes:
+- **Single service** — one Docker container serves the API **and** the SPA on one URL.
+- **Split** — a free HF **static** Space hosts the frontend; the API runs as Docker
+  elsewhere. (Heads-up: HF's own **Docker/Gradio Spaces now require a PRO plan** —
+  only **static** Spaces are free — so the Python API can't live on a free Space.)
 
-**Recommendation:** deploy on **Render** to get a free live URL fastest (Section 2).
-If you want it to stay awake longer for a link you'll share on a CV, use
-**Hugging Face Spaces** (Section 4). Both are free and need no card.
+| Option | Free? | Card? | Notes |
+| ------ | ----- | ----- | ----- |
+| **Render** — single service (Docker) | ✅ | ❌ | ~3 clicks (`render.yaml`); sleeps after ~15 min idle |
+| **HF static frontend + Render API** | ✅ | ❌ | frontend always-up on HF; API still sleeps on Render free |
+| DigitalOcean App Platform | via Student Pack $200 credit | ⚠️ maybe | always-on, no sleep |
+| Fly.io / Railway | free allowance / trial | ✅ required | Docker, snappier cold starts |
+
+Fastest to a working link: **Render single service** (Section 2). For an HF-hosted
+front door: **HF static + Render API** (Section 4). Both are free, no card.
 
 ---
 
@@ -87,33 +92,40 @@ Commit and push — done.
 
 ---
 
-## 4. Hugging Face Spaces (recommended free host — no card, ~48 h warm)
+## 4. HF static frontend + hosted API (free, HF-hosted front door)
 
-Best for a CV link: free CPU Basic Spaces get **16 GB RAM / 2 vCPU** and only sleep
-after ~48 h idle (adjustable in the Space settings). Modulus is CPU-only, so the
-free tier runs it fully — no Pro needed.
+Free HF Spaces only run **static** sites, so the Python API runs on Render
+(Section 2) and a free HF **static** Space serves the React frontend pointed at it.
+The API's CORS already allows any origin, so no per-origin config is needed.
 
-A ready Space README with the required Docker/port front-matter is checked in at
-[`deploy/huggingface/README.md`](deploy/huggingface/README.md). It stays out of the
-GitHub landing page and only configures the Space.
+**Step A — deploy the API on Render.** Follow Section 2; the same service doubles as
+the API. Note its URL, e.g. `https://modulus.onrender.com`.
 
-1. **Log in once:** `pip install -U "huggingface_hub[cli]"` then `hf auth login`
-   (paste a **write** token from <https://huggingface.co/settings/tokens>). This
-   also sets the git credential used to push.
-2. **Create the Space:** <https://huggingface.co/new-space> → name `modulus` →
-   **SDK: Docker** → **Blank** → Create.
-3. **Populate it** from your clone of this repo (run in Git Bash, from the repo root):
+**Step B — build the frontend against that API.** The frontend bakes in `VITE_API_URL`
+at build time:
+
+```bash
+cd frontend
+VITE_API_URL="https://modulus.onrender.com" npm run build   # bakes in the API origin
+cd ..
+```
+
+**Step C — publish `frontend/build/` as a static Space.**
+
+1. Log in once: `hf auth login` (write token from <https://huggingface.co/settings/tokens>).
+2. Create the Space: <https://huggingface.co/new-space> → name `modulus-web` →
+   **SDK: Static** → **Blank** → Create.
+3. Upload the build (the ready static-Space README is at
+   [`deploy/huggingface/README.md`](deploy/huggingface/README.md)):
    ```bash
-   git clone https://huggingface.co/spaces/<your-user>/modulus ../modulus-space
-   cp deploy/huggingface/README.md ../modulus-space/README.md
-   cp Dockerfile .dockerignore ../modulus-space/
-   cp -r backend frontend ../modulus-space/
-   cd ../modulus-space && git add -A && git commit -m "Deploy Modulus" && git push
+   cp deploy/huggingface/README.md frontend/build/README.md
+   hf upload <your-user>/modulus-web frontend/build . --repo-type space \
+     --commit-message "Publish Modulus frontend"
    ```
-4. HF builds the image (first build ~5–8 min) and serves it at
-   `https://<your-user>-modulus.hf.space`. Update the demo link (Section 3).
 
-To ship later changes, re-run the `cp` commands and `git push` from the Space clone.
+The Space serves at `https://<your-user>-modulus-web.static.hf.space` — an always-up
+demo link (only the API sleeps). Update the README demo link (Section 3). To ship
+frontend changes later, re-run Step B + the `hf upload` in Step C.
 
 ---
 

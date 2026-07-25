@@ -68,12 +68,14 @@ app = FastAPI(
     version="0.1.0",
 )
 
-# CORS: allow the React dev server on localhost:3000 to call localhost:8000
+# CORS: this is a public, read-only, cookie-less JSON API, so any origin may call
+# it. Allow-all (with credentials disabled, per the CORS spec) lets a separately
+# hosted frontend — e.g. an HF static Space calling this API on Render — work
+# without hard-coding its origin.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000",
-                   "http://localhost:5173", "http://127.0.0.1:5173"],
-    allow_credentials=True,
+    allow_origins=["*"],
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
