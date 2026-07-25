@@ -15,7 +15,7 @@ Python engine.
 ![API](https://img.shields.io/badge/api-FastAPI-009688)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
-🔗 **Live demo** — not yet deployed; spin one up in ~5 min with **[DEPLOY.md](DEPLOY.md)**, then drop the URL here
+🔗 **[Live demo](https://aadityagupta2407-modulus.static.hf.space)** _(the API sleeps when idle — first load may take ~30 s to wake)_
 &nbsp;·&nbsp; 📐 **[Case study](backend/docs/CASE_STUDY.md)**
 &nbsp;·&nbsp; 🧪 **[Validation report](backend/validation/VALIDATION.md)**
 &nbsp;·&nbsp; 📄 **[Engineering spec](backend/SPEC.md)**
