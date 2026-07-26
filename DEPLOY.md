@@ -61,7 +61,7 @@ git push
 3. Pick this repository. Render finds [`render.yaml`](render.yaml) and shows a
    service named **modulus** (Docker, free plan).
 4. Click **Apply**. Render builds the image (first build ~5–8 min) and boots it.
-5. When it goes **Live**, your URL is `https://modulus.onrender.com` (or
+5. When it goes **Live**, your URL is `https://<your-service>.onrender.com` (or
    `modulus-XXXX` if the name is taken — Render shows the real one at the top of
    the service page).
 
@@ -85,7 +85,7 @@ upgrade to Render's paid Starter plan, or use Fly.io below.
 Update the demo link in [`README.md`](README.md):
 
 ```md
-🔗 **[Live demo](https://modulus.onrender.com)**
+🔗 **[Live demo](https://<your-service>.onrender.com)**
 ```
 
 Commit and push — done.
@@ -99,14 +99,14 @@ Free HF Spaces only run **static** sites, so the Python API runs on Render
 The API's CORS already allows any origin, so no per-origin config is needed.
 
 **Step A — deploy the API on Render.** Follow Section 2; the same service doubles as
-the API. Note its URL, e.g. `https://modulus.onrender.com`.
+the API. Note its URL, e.g. `https://<your-service>.onrender.com`.
 
 **Step B — build the frontend against that API.** The frontend bakes in `VITE_API_URL`
 at build time:
 
 ```bash
 cd frontend
-VITE_API_URL="https://modulus.onrender.com" npm run build   # bakes in the API origin
+VITE_API_URL="https://<your-service>.onrender.com" npm run build   # bakes in the API origin
 cd ..
 ```
 

@@ -181,8 +181,8 @@ class BeamBaseRequest(BaseModel):
     length:            float = Field(..., description="Beam span [m]")
     load_case:         str   = Field(..., description="cantilever_end | cantilever_udl | simply_center | simply_udl")
     fos_target:        float = Field(1.5,  description="Minimum required factor of safety")
-    material_keys:     Optional[list[str]]  = Field(None, description="Subset of MATERIALS keys to consider")
-    section_types:     Optional[list[str]]  = Field(None, description="Subset of section types to consider")
+    material_keys:     Optional[list[str]]  = Field(None, max_length=50, description="Subset of MATERIALS keys to consider")
+    section_types:     Optional[list[str]]  = Field(None, max_length=50, description="Subset of section types to consider")
     deflection_limit:  Optional[float]      = Field(None, description="Max allowable deflection [m]")
     stock_mode:        bool                 = Field(False, description="Restrict sweep to standard stock sizes")
 
@@ -202,6 +202,7 @@ class BeamRankRequest(BeamBaseRequest):
 class BeamParetoRequest(BeamBaseRequest):
     objectives: Optional[list[list[str]]] = Field(
         None,
+        max_length=20,
         description='[["weight","min"],["cost","min"]] — list of [column, direction] pairs',
     )
 
@@ -219,7 +220,7 @@ class BeamMonteCarloRequest(BaseModel):
     length:        float = Field(..., description="Beam span [m]")
     load_case:     str   = Field(...)
     fos_target:    float = Field(2.0)
-    n_samples:     int   = Field(1000)
+    n_samples:     int   = Field(1000, ge=1, le=100_000, description="Sample count; bounded to prevent resource exhaustion")
     load_cov:      float = Field(0.10)
     dimension_cov: float = Field(0.02)
     E_cov:         float = Field(0.05)
@@ -238,7 +239,7 @@ class BeamEnvelopeRequest(BaseModel):
     material_key:     str   = Field(...)
     section_type:     str   = Field(...)
     d_mm:             float = Field(...)
-    load_cases:       list[EnvelopeLoadCase] = Field(...)
+    load_cases:       list[EnvelopeLoadCase] = Field(..., min_length=1, max_length=100)
     fos_target:       float = Field(2.0)
     deflection_limit: Optional[float] = Field(None)
 
@@ -254,7 +255,7 @@ class BracketEvaluateRequest(BaseModel):
     thickness:         float = Field(..., description="Plate thickness [m]")
     material_key:      str   = Field(...)
     fos_target:        float = Field(1.5)
-    bolt_count:        int   = Field(...)
+    bolt_count:        int   = Field(..., ge=1, le=1000)
     bolt_diameter:     float = Field(..., description="Bolt shank diameter [m]")
     bolt_spacing_v:    float = Field(..., description="Vertical bolt spacing [m]")
     bolt_sigma_allow:  float = Field(640e6, description="Bolt allowable stress [Pa]")
@@ -272,7 +273,7 @@ class BracketCompareGussetsRequest(BaseModel):
     thickness:        float
     material_key:     str
     fos_target:       float = 1.5
-    bolt_count:       int
+    bolt_count:       int = Field(..., ge=1, le=1000)
     bolt_diameter:    float
     bolt_spacing_v:   float
     bolt_sigma_allow: float = 640e6
